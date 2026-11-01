@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La nave · Quaderno di bordo</title>
+<link rel="preload" href="assets/fonts/atkinson-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/css/libro.css">
+</head>
+<body>
+<div id="scena" role="img" aria-label="Libro aperto: tocca le pagine, oppure usa le frecce della tastiera per sfogliare"></div>
+<div class="barra">
+  <span id="avviso-vr"></span>
+  <button class="solo-stretto" id="pagina-sx" type="button">Pagina sinistra</button>
+  <button class="solo-stretto" id="pagina-dx" type="button">Pagina destra</button>
+  <button id="entra-vr" type="button" disabled>Entra in VR</button>
+</div>
+<div class="sr" id="testo-pagina" aria-live="polite"></div>
+
+<script src="assets/vendor/three.min.js"></script>
+<script src="assets/js/tavola3d.js"></script>
+<script src="assets/js/pagina.js"></script>
+<script src="assets/js/libro.js"></script>
+<script src="assets/js/motore.js"></script>
+<script src="assets/js/glossario-dati.js"></script>
+<script src="assets/js/scafo.js"></script>
+<script src="assets/js/lezione.js"></script>
+<script src="assets/js/lezioni/01.js"></script>
+<script src="assets/js/lezioni/04.js"></script>
+<script src="assets/js/lezioni/09.js"></script>
+<script src="assets/js/lezioni/10.js"></script>
+<script src="assets/js/lezioni/11.js"></script>
+<script src="assets/js/lezioni/17.js"></script>
+<script src="assets/js/lezioni/18.js"></script>
+<script src="assets/js/lezioni/05.js"></script>
+<script src="assets/js/lezioni/06.js"></script>
+<script src="assets/js/lezioni/07.js"></script>
+<script src="assets/js/lezioni/08.js"></script>
+<script src="assets/js/lezioni/12.js"></script>
+<script src="assets/js/lezioni/14.js"></script>
+<script src="assets/js/lezioni/15.js"></script>
+<script src="assets/js/lezioni/13.js"></script>
+<script src="assets/js/sezioni.js"></script>
+<script>
+  // Le pagine sono disegnate su tela: i caratteri devono essere pronti prima
+  Promise.all([
+    document.fonts.load('44px Atkinson'), document.fonts.load('700 44px Atkinson'),
+    document.fonts.load('700 68px Bitter'), document.fonts.load('42px Disegno'),
+  ]).catch(() => {}).then(() => Motore.avvia());
+</script>
+</body>
+</html>

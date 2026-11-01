@@ -1,0 +1,40 @@
+/* Il libro è tutto nella scena 3D: qui solo i caratteri e la barra sopra la scena. Regole in design.md */
+@font-face { font-family: "Bitter"; src: url("../fonts/bitter-700.woff2") format("woff2"); font-weight: 700; font-display: block; }
+@font-face { font-family: "Atkinson"; src: url("../fonts/atkinson-400.woff2") format("woff2"); font-weight: 400; font-display: block; }
+@font-face { font-family: "Atkinson"; src: url("../fonts/atkinson-700.woff2") format("woff2"); font-weight: 700; font-display: block; }
+@font-face { font-family: "Disegno"; src: url("../fonts/architects-daughter-400.woff2") format("woff2"); font-display: block; }
+
+:root {
+  --carta: #F6F3E8;
+  --inchiostro: #12355B;
+  --inchiostro-2: #4A76A8;
+  --ocra: #C8962B;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: #E9E6D8; color: var(--inchiostro);
+  font-family: "Atkinson", "Segoe UI", sans-serif;
+  overflow: hidden;
+}
+#scena { position: fixed; inset: 0; }
+#scena canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+.barra {
+  position: fixed; right: 12px; top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end;
+  max-width: calc(100vw - 24px);
+}
+.barra button {
+  min-height: 48px; padding: 0 16px; font: 700 17px "Atkinson", sans-serif;
+  color: var(--carta); background: var(--inchiostro); border: 2px solid var(--inchiostro); border-radius: 3px; cursor: pointer;
+}
+.barra button:disabled { background: var(--carta); color: var(--inchiostro-2); cursor: not-allowed; }
+.barra button:focus-visible { outline: 3px solid var(--ocra); outline-offset: 2px; }
+.barra span { font-size: 15px; color: var(--inchiostro-2); background: var(--carta); padding: 2px 6px; }
+.solo-stretto { display: none; }
+body.stretto .solo-stretto { display: inline-block; background: var(--carta); color: var(--inchiostro); }
+
+/* Il testo delle pagine resta leggibile dai lettori di schermo */
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
