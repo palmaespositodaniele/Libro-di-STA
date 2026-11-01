@@ -205,7 +205,7 @@
     m.position.set(L / 2, 0, lato * (B / 2 + 0.02));
     if (lato < 0) m.rotation.y = Math.PI;
     const sx = lato; // sempre verso prua
-    const inchiostroMarca = new THREE.MeshBasicMaterial({ color: COL.inchiostro });
+    const inchiostroMarca = new THREE.MeshBasicMaterial({ color: COL.scafo }); // sulla murata scura
     const barra = (x, y, w, h, mat) => {
       const b = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat || inchiostroMarca);
       b.position.set(sx * x, y, 0);
@@ -215,7 +215,7 @@
     const lettera = (testo, x, y, alta) => {
       const w = testo.length > 1 ? 120 * testo.length : 150;
       const tex = tela(w, 150, (c) => {
-        c.font = '700 120px Atkinson, sans-serif'; c.fillStyle = '#12355B'; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.font = '700 120px Atkinson, sans-serif'; c.fillStyle = '#FBF9F1'; c.textAlign = 'center'; c.textBaseline = 'middle';
         c.fillText(testo, w / 2, 80);
       });
       const p = new THREE.Mesh(new THREE.PlaneGeometry((alta * w) / 150, alta), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
@@ -235,7 +235,7 @@
 
     Object.keys(MARCA).forEach((k) => {
       const verso = k === 'F' || k === 'TF' ? -1 : 1;
-      coloriMarca[k] = coloriMarca[k] || new THREE.MeshBasicMaterial({ color: COL.inchiostro });
+      coloriMarca[k] = coloriMarca[k] || new THREE.MeshBasicMaterial({ color: COL.scafo });
       const b = barra(0.54 + verso * 0.115, Yb(MARCA[k]) - 0.0125, 0.23, 0.025, coloriMarca[k]);
       const dy = k === 'W' ? 0.03 : k === 'WNA' ? -0.03 : 0;
       const l = lettera(k, 0.54 + verso * (k.length > 2 ? 0.39 : k.length > 1 ? 0.33 : 0.29), Yb(MARCA[k]) + dy, 0.09);
@@ -258,13 +258,7 @@
     marche(nave, -1);
     radice.add(nave);
 
-    const acqua = new THREE.Mesh(new THREE.CircleGeometry(420, 72), new THREE.MeshBasicMaterial({ color: COL.acqua, transparent: true, opacity: 0.3, depthWrite: false }));
-    acqua.rotation.x = -Math.PI / 2; acqua.position.set(45, 0, 0);
-    radice.add(acqua);
-    const griglia = new THREE.GridHelper(640, 64, COL.medio, COL.medio);
-    griglia.material.transparent = true; griglia.material.opacity = 0.28;
-    griglia.position.set(45, 0.01, 0);
-    radice.add(griglia);
+    radice.add(Scafo.mare());
 
     // Linea di galleggiamento ferma sull'acqua: è la nave a muoversi
     const lineeLontane = [];

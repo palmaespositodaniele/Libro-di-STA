@@ -13,7 +13,8 @@ window.Motore = (function () {
   contenitore.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xE9E6D8);
+  const SFONDO = 0x2A1A0F; const INCLINA = -0.24; // così si vede lo spessore del volume
+  scene.background = new THREE.Color(SFONDO);
   const camera = new THREE.PerspectiveCamera(28, 1, 0.03, 1500);
   const rig = new THREE.Group();
   rig.add(camera);
@@ -21,29 +22,26 @@ window.Motore = (function () {
 
   /* Tavolo da carteggio, solo su schermo */
   const tavolo = new THREE.Group();
-  const fogli = Tavola.tela(512, 512, (c) => {
-    c.fillStyle = '#E9E6D8'; c.fillRect(0, 0, 512, 512);
-    c.strokeStyle = '#D3DAD8'; c.lineWidth = 2; c.beginPath();
-    for (let i = 0; i <= 512; i += 64) { c.moveTo(i, 0); c.lineTo(i, 512); c.moveTo(0, i); c.lineTo(512, i); }
-    c.stroke();
-  });
-  fogli.wrapS = fogli.wrapT = THREE.RepeatWrapping; fogli.repeat.set(16, 16);
-  const piano = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), new THREE.MeshBasicMaterial({ map: fogli }));
-  piano.position.z = -0.012;
+  const piano = Ambiente.tavolo();
+  piano.position.z = -0.046;
   tavolo.add(piano);
-  tavolo.rotation.x = -0.1; // stessa inclinazione del libro
+  tavolo.rotation.x = INCLINA;
   scene.add(tavolo);
 
-  /* Stanza a quadretti, solo in VR */
-  const stanza = new THREE.GridHelper(40, 40, 0xC9D8E6, 0xC9D8E6);
+  /* Sala nautica e leggio, solo in VR */
+  const stanza = Ambiente.stanza();
   stanza.visible = false;
   scene.add(stanza);
+  const sostegno = Ambiente.leggio();
+  sostegno.tavola.visible = false; sostegno.colonna.visible = false;
+  rig.add(sostegno.colonna);
 
   /* Libro ---------------------------------------------------------------- */
   const libro = new THREE.Group();
   const interno = new THREE.Group(); // si sposta quando il libro è chiuso
   libro.add(interno);
-  libro.rotation.x = -0.1;
+  libro.rotation.x = INCLINA;
+  libro.add(sostegno.tavola);
   scene.add(libro);
 
   function tavolozzaPagina() {
@@ -61,15 +59,56 @@ window.Motore = (function () {
   const paginaDx = new THREE.Mesh(new THREE.PlaneGeometry(PW, PH), new THREE.MeshBasicMaterial({ map: att.dx.tex }));
   paginaSx.position.set(-PW / 2, 0, Z); paginaDx.position.set(PW / 2, 0, Z);
   paginaSx.userData.lato = 'sx'; paginaDx.userData.lato = 'dx';
-  const blocco = (x, z, w, h, sp, colore) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, sp), new THREE.MeshBasicMaterial({ color: colore }));
-    m.position.set(x, 0, z);
+  // Volume rilegato: la superficie delle pagine resta a Z, lo spessore cresce verso il basso
+  const SP = 0.042; const SC = 0.009; const FONDO = Z - SP;
+  const fianchi = Tavola.tela(64, 64, (c) => {
+    c.fillStyle = '#EFE6CE'; c.fillRect(0, 0, 64, 64);
+    for (let i = 0; i < 64; i += 3) { c.fillStyle = i % 2 ? 'rgba(120,100,70,0.4)' : 'rgba(120,100,70,0.2)'; c.fillRect(0, i, 64, 1); }
+    const g = c.createLinearGradient(0, 0, 0, 64); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(60,40,20,0.4)');
+    c.fillStyle = g; c.fillRect(0, 0, 64, 64);
+  });
+  const pelle = Tavola.tela(512, 700, (c) => {
+    c.fillStyle = '#17395F'; c.fillRect(0, 0, 512, 700);
+    for (let i = 0; i < 6000; i++) { c.fillStyle = i % 2 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.07)'; c.fillRect((i * 7919) % 512, (i * 104729) % 700, 2, 2); }
+    c.strokeStyle = '#D0AC58'; c.lineWidth = 4; c.strokeRect(7, 7, 498, 686);
+  });
+  const matPagine = new THREE.MeshBasicMaterial({ map: fianchi });
+  const matTaglio = new THREE.MeshBasicMaterial({ color: 0xE9DFC6 });
+  const matDorso = new THREE.MeshBasicMaterial({ color: 0x102C4A });
+  const matCoperta = [matDorso, matDorso, matDorso, matDorso, new THREE.MeshBasicMaterial({ map: pelle }), matDorso];
+  const pagine = (x) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(PW, PH, SP), [matPagine, matPagine, matPagine, matPagine, matTaglio, matTaglio]);
+    m.position.set(x, 0, Z - SP / 2 - 0.0004);
     return m;
   };
+  const coperta = (x) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(PW + 0.034, PH + 0.042, SC), matCoperta);
+    m.position.set(x, 0, FONDO - SC / 2);
+    return m;
+  };
+  const ombraTex = Tavola.tela(256, 340, (c) => {
+    c.shadowColor = 'rgba(10,5,0,0.85)'; c.shadowBlur = 26; c.fillStyle = 'rgba(10,5,0,0.85)'; c.fillRect(34, 34, 188, 272);
+  });
+  const ombra = (x) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(PW * 1.32, PH * 1.26), new THREE.MeshBasicMaterial({ map: ombraTex, transparent: true, depthWrite: false }));
+    m.position.set(x + 0.014, -0.02, FONDO - SC - 0.001);
+    return m;
+  };
+  const ombre = [ombra(-PW / 2 - 0.01), ombra(PW / 2 + 0.01)];
   const latoSx = new THREE.Group(); const latoDx = new THREE.Group();
-  latoSx.add(blocco(-PW / 2 - 0.008, -0.006, PW + 0.03, PH + 0.03, 0.008, COL.inchiostro), blocco(-PW / 2, 0.006, PW, PH, 0.02, 0xE4DFCB), paginaSx);
-  latoDx.add(blocco(PW / 2 + 0.008, -0.006, PW + 0.03, PH + 0.03, 0.008, COL.inchiostro), blocco(PW / 2, 0.006, PW, PH, 0.02, 0xE4DFCB), paginaDx);
-  interno.add(latoSx, latoDx);
+  latoSx.add(ombre[0], coperta(-PW / 2 - 0.015), pagine(-PW / 2), paginaSx);
+  latoDx.add(ombre[1], coperta(PW / 2 + 0.015), pagine(PW / 2), paginaDx);
+  // Dorso, capitelli e segnalibro
+  const dorso = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, PH + 0.042, 16, 1, false, Math.PI / 2, Math.PI), matDorso);
+  dorso.position.set(0, 0, FONDO - SC); dorso.rotation.y = Math.PI;
+  const capitello = (s) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.005, SP * 0.9), new THREE.MeshBasicMaterial({ color: 0xB23A2E }));
+    m.position.set(0, s * (PH / 2 + 0.0015), Z - SP / 2);
+    return m;
+  };
+  const nastro = new THREE.Mesh(new THREE.PlaneGeometry(0.016, 0.1), new THREE.MeshBasicMaterial({ color: 0xB23A2E, side: THREE.DoubleSide }));
+  nastro.position.set(0.012, -PH / 2 - 0.04, Z - 0.003); nastro.rotation.z = -0.1;
+  interno.add(dorso, capitello(1), capitello(-1), nastro, latoSx, latoDx);
 
   // Foglio che gira: due facce sulla stessa forma curva
   const SEG = 16;
@@ -128,7 +167,7 @@ window.Motore = (function () {
 
   /* Finestra sul modello --------------------------------------------------- */
   const mondoScena = new THREE.Scene();
-  mondoScena.background = new THREE.Color(COL.carta);
+  mondoScena.background = new THREE.Color(0xDCE7EA);
   const mondoCam = new THREE.PerspectiveCamera(34, 1040 / 760, 0.05, 1500);
   const orbita = { target: new THREE.Vector3(), theta: 0.7, phi: 1.3, r: 100, meta: { target: new THREE.Vector3(), theta: 0.7, phi: 1.3, r: 100 } };
   let mondo = null; let mondoSporco = true;
@@ -330,9 +369,9 @@ window.Motore = (function () {
     const stretto = camera.aspect < 0.9;
     document.body.classList.toggle('stretto', stretto);
     const tan = Math.tan((camera.fov * Math.PI) / 360);
-    const largo = stretto ? PW + 0.03 : 2 * PW + 0.05;
-    // In alto resta una striscia libera per il pulsante VR
-    const d = Math.max((PH + 0.13) / (2 * tan), largo / (2 * tan * camera.aspect));
+    const largo = stretto ? PW + 0.03 : 2 * PW + 0.13;
+    // Intorno si vede il tavolo; in alto resta una striscia libera per il pulsante VR
+    const d = Math.max((PH + 0.2) / (2 * tan), largo / (2 * tan * camera.aspect));
     const x = stretto ? (focus || 1) * (PW / 2) : 0;
     camera.position.set(x, 0.03, d);
     camera.rotation.set(0, 0, 0);
@@ -397,6 +436,7 @@ window.Motore = (function () {
       rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0);
     }
     stanza.visible = !vera;
+    sostegno.tavola.visible = !vera; sostegno.colonna.visible = !vera;
     // Accanto alla nave il libro si sposta di lato per non coprire la vista
     leggio.pos.set(vera ? -0.66 : 0, leggio.altezza, vera ? -0.5 : -0.78);
     leggio.rot.copy(QL(vera ? 0.75 : 0));
@@ -489,6 +529,8 @@ window.Motore = (function () {
     libro.position.copy(leggio.pos); libro.quaternion.copy(leggio.rot);
     camera.position.set(0, 0, 0); camera.rotation.set(0, 0, 0);
     stanza.visible = true; daCentrare = true;
+    sostegno.tavola.visible = true; sostegno.colonna.visible = true;
+    ombre.forEach((o) => { o.visible = false; });
     finestra.visible = false;
     ridisegna();
     impostaVR();
@@ -497,10 +539,12 @@ window.Motore = (function () {
     scene.add(libro); scene.add(tavolo);
     if (mondo) mondoScena.add(mondo.radice);
     pedane.forEach((p) => { p.visible = false; }); pedane = [];
-    scene.background = new THREE.Color(0xE9E6D8);
+    scene.background = new THREE.Color(SFONDO);
     rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0);
-    libro.position.set(0, 0, 0); libro.rotation.set(-0.1, 0, 0);
+    libro.position.set(0, 0, 0); libro.rotation.set(INCLINA, 0, 0);
     stanza.visible = false; mirino.visible = false; leggio.modo = 'libro';
+    sostegno.tavola.visible = false; sostegno.colonna.visible = false;
+    ombre.forEach((o) => { o.visible = true; });
     modellino.clear(); modellino.visible = false; anello.visible = false; tieni = null;
     ridimensiona();
     ridisegna();
@@ -549,6 +593,8 @@ window.Motore = (function () {
       }
       libro.position.lerp(leggio.pos, 1 - Math.exp(-dt * 3));
       libro.quaternion.slerp(leggio.rot, 1 - Math.exp(-dt * 3));
+      sostegno.colonna.position.set(libro.position.x, 0, libro.position.z - 0.12);
+      sostegno.colonna.scale.y = Math.max(0.1, libro.position.y - 0.28);
       // Il modellino si alza piano dal libro; poi si gira tenendo il grilletto e ruotando la mano
       const yMod = leggio.altezza + POS_MODELLO.sopra;
       if (modellino.visible) {

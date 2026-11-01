@@ -110,7 +110,7 @@
           const u = 0.012 + a * 0.976; const v = ((c + b * 0.94) / NC) * 0.99 + 0.012; const p = punto(u, v, 0.04);
           return [p.x, p.y, sg * p.z];
         });
-        fasciame.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: COL.scafo, side: THREE.DoubleSide })));
+        fasciame.add(new THREE.Mesh(Tavola.cuoci(geo, ['#A9763F', '#B5854E', '#9C6B38'][c % 3], true), new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })));
         const riga = []; for (let i = 0; i <= 40; i++) { const u = 0.012 + (i / 40) * 0.976; const p = punto(u, (c / NC) * 0.99 + 0.012, 0.07); riga.push(new THREE.Vector3(p.x, p.y, sg * p.z)); }
         giunti.push(tratto(riga, 0.018 * k));
         fasciame.add(tratto(riga.map((q) => q.clone()), 0.012 * k, COL.medio));

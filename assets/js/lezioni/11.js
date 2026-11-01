@@ -37,7 +37,7 @@
   /* Pala del timone, con flap per il Becker */
   function timone(k) {
     const g = new THREE.Group(); g.position.set(-1.6, 0, 0);
-    const carta = new THREE.MeshBasicMaterial({ color: COL.scafo, side: THREE.DoubleSide });
+    const carta = new THREE.MeshBasicMaterial({ color: Scafo.TINTE.carena, side: THREE.DoubleSide });
     const lamina = (l, h) => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(l, h, 0.3 * Math.max(1, k * 0.5)), carta);
       m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: COL.inchiostro })));

@@ -35,10 +35,10 @@
   function blocco(i, k) {
     const g = new THREE.Group();
     const u0 = i / NB; const u1 = (i + 1) / NB;
-    const carta = new THREE.MeshBasicMaterial({ color: COL.scafo, side: THREE.DoubleSide });
-    [1, -1].forEach((sg) => g.add(new THREE.Mesh(fiancata(u0 + 0.002, u1 - 0.002, 0, 11, sg), carta)));
+    const lamiera = Scafo.vernice();
+    [1, -1].forEach((sg) => g.add(new THREE.Mesh(Scafo.dipinto(fiancata(u0 + 0.002, u1 - 0.002, 0, 11, sg)), lamiera)));
     const deck = griglia(10, 4, (a, b) => { const u = u0 + a * (u1 - u0); const y = insellatura(u); return [ascissa(u, y), y, (2 * b - 1) * mezza(u, y)]; });
-    g.add(new THREE.Mesh(deck, carta));
+    g.add(new THREE.Mesh(deck, new THREE.MeshBasicMaterial({ color: Scafo.TINTE.ponte, side: THREE.DoubleSide })));
     const anello = (u) => {
       const fk = fondo(u); const h = insellatura(u); const p = [];
       for (let j = 12; j >= -12; j--) { const y = fk + (Math.abs(j) / 12) * (h - fk); p.push(new THREE.Vector3(ascissa(u, y), y, Math.sign(j || 1) * (mezza(u, y) + 0.08))); }

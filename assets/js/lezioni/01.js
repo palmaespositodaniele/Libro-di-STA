@@ -69,14 +69,14 @@
     g.add(Scafo.crea(k));
     // Castello di prua
     [1, -1].forEach((lato) => {
-      const c = new THREE.Mesh(formaCastello(), new THREE.MeshBasicMaterial({ color: COL.scafo, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 }));
+      const c = new THREE.Mesh(Scafo.dipinto(formaCastello()), Scafo.vernice());
       c.scale.z = lato;
       g.add(c);
       const orlo = [];
       for (let i = 0; i <= 12; i++) { const u = 0.82 + (i / 12) * 0.18; const y = insellatura(u); orlo.push(new THREE.Vector3(ascissa(u, y), y + 2.2, lato * mezza(u, y))); }
       g.add(tratto(orlo, 0.04 * k));
     });
-    const bulbo = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), new THREE.MeshBasicMaterial({ color: COL.scafo }));
+    const bulbo = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), new THREE.MeshBasicMaterial({ color: Scafo.TINTE.carena }));
     bulbo.scale.set(3.4, 1.3, 1.2); bulbo.position.set(ascissa(1, 2.6) - 0.6, 2.6, 0);
     g.add(bulbo);
     PARTI.forEach((p) => {
@@ -104,13 +104,7 @@
     const radice = new THREE.Group();
     const grande = nave(1);
     radice.add(grande);
-    const acqua = new THREE.Mesh(new THREE.CircleGeometry(420, 72), new THREE.MeshBasicMaterial({ color: COL.acqua, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide }));
-    acqua.rotation.x = -Math.PI / 2; acqua.position.set(45, 0, 0);
-    radice.add(acqua);
-    const griglia3 = new THREE.GridHelper(640, 64, COL.medio, COL.medio);
-    griglia3.material.transparent = true; griglia3.material.opacity = 0.28;
-    griglia3.position.set(45, 0.01, 0);
-    radice.add(griglia3);
+    radice.add(Scafo.mare());
     const nomi = [['prua', 103, 8, 0], ['poppa', -8, 11, 0], ['dritta', 45, 16, 16], ['sinistra', 45, 16, -16]];
     nomi.forEach(([t, x, y, z]) => { const e = etichetta(t, 5); e.position.set(x, y, z); radice.add(e); });
 

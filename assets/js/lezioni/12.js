@@ -61,8 +61,8 @@
     const nave = new THREE.Group(); const perno = new THREE.Group(); perno.position.set(L / 2, 0, 0);
     nave.position.set(-L / 2, -6, 0);
     perno.add(nave);
-    const guscio = new THREE.MeshBasicMaterial({ color: COL.scafo, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false });
-    [1, -1].forEach((sg) => nave.add(new THREE.Mesh(fiancata(0, 1, 0, 11, sg), guscio)));
+    const guscio = Scafo.vernice(); guscio.transparent = true; guscio.opacity = 0.34; guscio.depthWrite = false;
+    [1, -1].forEach((sg) => nave.add(new THREE.Mesh(Scafo.dipinto(fiancata(0, 1, 0, 11, sg)), guscio)));
     const linee = new THREE.Group();
     [1, -1].forEach((sg) => { const q = []; for (let i = 0; i <= 60; i++) { const u = i / 60; const y = insellatura(u); q.push(new THREE.Vector3(ascissa(u, y), y + 0.05, sg * mezza(u, y))); } linee.add(tratto(q, 0.05 * k)); });
     const prof = []; for (let i = 0; i <= 60; i++) { const u = i / 60; prof.push(new THREE.Vector3(ascissa(u, fondo(u)), fondo(u), 0)); } for (let j = 1; j <= 8; j++) { const y = 3 + (j / 8) * (insellatura(1) - 3); prof.push(new THREE.Vector3(ascissa(1, y), y, 0)); }
@@ -94,7 +94,7 @@
     if (mondo) return mondo;
     const radice = new THREE.Group();
     radice.add(copia(1), Scafo.mare());
-    [['prua', 88, 14, 0], ['poppa', 2, 14, 0]].forEach(([t, x, y, z]) => { const e = etichetta(t, 5); e.position.set(x, y, z); radice.add(e); });
+    [['prua', 82, 12, 0], ['poppa', 8, 12, 0]].forEach(([t, x, y, z]) => { const e = etichetta(t, 5); e.position.set(x, y, z); radice.add(e); });
     const stazioni = [
       { pedana: pedana(45, 22, 'a dritta'), pos: new THREE.Vector3(45, 0.25, 22), yaw: 0 },
       { pedana: (() => { const p = pedana(45, 0, 'dentro la stiva 3'); p.scale.setScalar(0.3); p.position.y = -4.86; return p; })(), pos: new THREE.Vector3(45, -4.8, 0), yaw: -Math.PI / 2 },

@@ -74,6 +74,24 @@
     return m;
   }
 
+  // Luce cotta nei vertici: dà volume senza luci in scena, che sul visore costano troppo.
+  // tinta(x, y, z) dà il colore; fuori: le normali guardano via dall'asse, per gli scafi
+  const SOLE = new THREE.Vector3(0.35, 0.8, 0.48).normalize();
+  function cuoci(geo, tinta, fuori) {
+    geo.computeVertexNormals();
+    const p = geo.attributes.position; const n = geo.attributes.normal;
+    const col = new Float32Array(p.count * 3); const c = new THREE.Color(); const v = new THREE.Vector3();
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(n, i);
+      if (fuori && v.z * p.getZ(i) < 0) v.negate();
+      const luce = 0.6 + 0.4 * (v.dot(SOLE) * 0.5 + 0.5);
+      if (typeof tinta === 'function') c.set(tinta(p.getX(i), p.getY(i), p.getZ(i))); else c.set(tinta);
+      col[i * 3] = c.r * luce; col[i * 3 + 1] = c.g * luce; col[i * 3 + 2] = c.b * luce;
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    return geo;
+  }
+
   // Fonde tutti i tratti dello stesso colore in un solo oggetto: il visore disegna molto meno
   function compatta(gruppo) {
     gruppo.updateMatrixWorld(true);
@@ -103,5 +121,5 @@
     return gruppo;
   }
 
-  window.Tavola = { COL, tratto, segmento, scatola, tela, etichetta, pedana, compatta };
+  window.Tavola = { COL, tratto, segmento, scatola, tela, etichetta, pedana, compatta, cuoci };
 })();

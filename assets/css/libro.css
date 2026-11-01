@@ -15,7 +15,7 @@
 [hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; }
 body {
-  background: #E9E6D8; color: var(--inchiostro);
+  background: #2A1A0F; color: var(--inchiostro);
   font-family: "Atkinson", "Segoe UI", sans-serif;
   overflow: hidden;
 }

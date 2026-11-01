@@ -41,7 +41,8 @@
   /* Elica: le pale sono porzioni di elicoide (slide 13) ---------------------------------- */
   function elica(R, k) {
     const g = new THREE.Group();
-    const carta = new THREE.MeshBasicMaterial({ color: COL.scafo, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+    const carta = new THREE.MeshBasicMaterial({ color: 0xC9A24E, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+    const bronzo = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
     const mozzo = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.18, R * 0.15, R * 0.5, 16), carta);
     mozzo.rotation.z = Math.PI / 2;
     g.add(mozzo);
@@ -54,7 +55,7 @@
         const t = a0 + (v - 0.5) * largh;
         return [((t - a0) / (Math.PI * 2)) * passo, r * Math.cos(t), r * Math.sin(t)];
       };
-      g.add(new THREE.Mesh(griglia(14, 8, punto), carta));
+      g.add(new THREE.Mesh(Tavola.cuoci(griglia(14, 8, punto), 0xC9A24E), bronzo));
       const orlo = [];
       for (let u = 0; u <= 14; u++) orlo.push(new THREE.Vector3(...punto(u / 14, 0)));
       for (let v = 1; v <= 8; v++) orlo.push(new THREE.Vector3(...punto(1, v / 8)));
@@ -68,7 +69,7 @@
   const ACQUA = 9.3;
 
   function propulsori(k) {
-    const carta = new THREE.MeshBasicMaterial({ color: COL.scafo, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+    const carta = new THREE.MeshBasicMaterial({ color: 0xA9BAC4, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
     const out = {};
 
     // Elica su linea d'assi
