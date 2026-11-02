@@ -77,13 +77,18 @@
     punta.rotation.x = -Math.PI / 2; punta.position.z = -4.4;
     freccia.add(asta, punta); freccia.position.y = 1;
     nave.add(freccia); g.add(nave);
+    // Sfere d'oro: sulla nave per girare intorno alla bassa, sulla bassa per approfondirla
+    const pNave = Tavola.maniglia(0.9 + 0.3 * k, 'nave'); pNave.position.set(0, 3, 0); nave.add(pNave);
+    const pBassa = Tavola.maniglia(0.9 + 0.3 * k, 'bassa'); g.add(pBassa);
+    prese[k > 1 ? 'mini' : 'schermo'].push(pNave, pBassa);
     const A = etichetta('A', 3.6); A.position.set(CA.x, 3.4, CA.z);
     const B = etichetta('B', 3.6, '#B3362B'); B.position.set(CB.x, 1.9, CB.z);
     const Nn = etichetta('N ↑', 1.8); Nn.position.set(-27, 1.6, -19);
     g.add(A, B, Nn);
-    copie.push({ k, g, superficie, isobare, frecce, nave, freccia, B });
+    copie.push({ k, g, superficie, isobare, frecce, nave, freccia, B, pBassa });
     return g;
   }
+  const prese = { schermo: [], mini: [] }; const resto = { nave: 0, bassa: 0 };
 
   function aggiornaCampo() {
     copie.forEach((c) => {
@@ -101,6 +106,7 @@
         }
       });
       c.B.position.y = quota(pres(CB.x, CB.z)) + 1.2;
+      c.pBassa.position.set(CB.x + 3, quota(pres(CB.x, CB.z)) + 1.6, CB.z);
     });
   }
 
@@ -190,6 +196,14 @@
     mondo = {
       radice, stazioni, modellino: mini, vistaIniziale: VISTA,
       lente: () => { disegnaLente(); return texLente; },
+      tocchi: (v) => prese[v === 'mini' ? 'mini' : 'schermo'],
+      trascina(id, dx, dy) {
+        resto[id] += id === 'nave' ? dx / 40 : dy / 50;
+        const n = Math.trunc(resto[id]); if (!n) return;
+        resto[id] -= n;
+        for (let i = 0; i < Math.abs(n); i++) comandi(id === 'nave' ? (n > 0 ? 'dove+' : 'dove-') : (n > 0 ? 'forza+' : 'forza-'));
+        Motore.ridisegna();
+      },
       frame(dt) { muoviVento(dt); return true; },
     };
     return mondo;
@@ -212,9 +226,62 @@
   function comandiFronte(id) {
     if (id === 'f+') s.fase = Math.min(2, s.fase + 1);
     if (id === 'f-') s.fase = Math.max(0, s.fase - 1);
+    fr.x = (s.fase + 0.5) / 3;
+    segnaFronte();
+    posaFronte();
+    Motore.sporco();
+  }
+  function segnaFronte() {
     s.visteFronte.add(s.fase);
     if (s.visteFronte.has(2)) lez.completa('fronte');
   }
+
+  /* Il fronte freddo in 3D: il cuneo di aria fredda avanza e solleva quella calda (slide 65) */
+  const fr = { x: 1 / 6, copie: [] };
+  function posaFronte() {
+    fr.copie.forEach((c) => {
+      const x = -18 + fr.x * 46;
+      c.cuneo.position.x = x; c.presa.position.x = x; c.nube.position.x = x + 4;
+      c.nube.visible = s.fase === 1;
+    });
+  }
+  const creaFronte = Lezione.simula({
+    scala: 0.013, centro: [0, 2], k: 3, mare: false, pedana: [0, 46, 'davanti al fronte'], dopo: posaFronte,
+    vista: () => ({ target: new THREE.Vector3(4, 10, 0), theta: 0.12, phi: 1.42, r: 104 }),
+    modello(k, tocca) {
+      const g = new THREE.Group();
+      const suolo = new THREE.Mesh(new THREE.BoxGeometry(150, 1, 48), new THREE.MeshBasicMaterial({ color: 0x2F7FA3 }));
+      suolo.position.y = -0.5; g.add(suolo);
+      const caldo = new THREE.Mesh(new THREE.BoxGeometry(150, 34, 48), new THREE.MeshBasicMaterial({ color: 0xE3C878, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }));
+      caldo.position.y = 17; g.add(caldo);
+      const cuneo = new THREE.Group();
+      const superficie = griglia(18, 2, (a, b) => [-a * 60, 16 * a ** 0.55, (2 * b - 1) * 22]);
+      cuneo.add(new THREE.Mesh(superficie, new THREE.MeshBasicMaterial({ color: COL.acqua, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false })));
+      [1, -1].forEach((sg) => {
+        const fianco = griglia(18, 1, (a, b) => [-a * 60, b * 16 * a ** 0.55, sg * 22]);
+        cuneo.add(new THREE.Mesh(fianco, new THREE.MeshBasicMaterial({ color: COL.acqua, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false })));
+      });
+      const freddo = etichetta('aria fredda', 3 + k, '#0B2545'); freddo.position.set(-26, 4, 24); cuneo.add(freddo);
+      g.add(cuneo);
+      const calda = etichetta('aria calda', 3 + k, '#B3362B'); calda.position.set(34, 12, 0); g.add(calda);
+      const nube = new THREE.Group();
+      const bianco = new THREE.MeshBasicMaterial({ vertexColors: true });
+      const palla = Tavola.cuoci(new THREE.SphereGeometry(1, 14, 10), '#F4F7FA');
+      [[0, 24, 0, 8], [-7, 19, 3, 6], [7, 19, -3, 6], [0, 16, 7, 6], [2, 31, 0, 6]].forEach(([x, y, z, r]) => { const m = new THREE.Mesh(palla, bianco); m.position.set(x, y, z); m.scale.setScalar(r); nube.add(m); });
+      for (let i = 0; i < 14; i++) nube.add(Tavola.segmento(new THREE.Vector3(-9 + i * 1.4, 14, -8 + (i * 5) % 16), new THREE.Vector3(-10 + i * 1.4, 1, -8 + (i * 5) % 16), 0.08 * Math.sqrt(k), COL.acqua));
+      g.add(nube);
+      const presa = Tavola.maniglia(2.4 * Math.sqrt(k), 'fronte'); presa.position.set(0, 5, 0); g.add(presa); tocca(presa);
+      fr.copie.push({ cuneo, presa, nube });
+      return g;
+    },
+    trascina(id, dx) {
+      const prima = s.fase;
+      fr.x = Math.max(0, Math.min(1, fr.x + dx * 0.0022));
+      s.fase = Math.min(2, Math.floor(fr.x * 3));
+      posaFronte();
+      if (s.fase !== prima) { segnaFronte(); Motore.ridisegna(); }
+    },
+  });
 
   /* Sezione del fronte freddo, dalla slide 65 */
   function sezioneFronte(c, x, y, w, h) {
@@ -296,18 +363,18 @@
           },
           ...(vr ? [{ t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []),
           { t: 'zona', id: 'lente', h: 300 },
-          { t: 'nota', testo: 'Isobare fitte: vento forte. Freccia ocra: il vento sulla nave.' },
+          { t: 'nota', testo: 'Sfere d\'oro: di lato sposti la nave intorno alla bassa, in giù approfondisci la bassa. Isobare fitte: vento forte.' },
         ],
       },
       {
-        passo: 2, azione: comandiFronte,
+        passo: 2, azione: comandiFronte, mondo: creaFronte,
         sx: [
           { t: 'titolo', testo: 'Passa il fronte freddo' },
           { t: 'passo', id: 'f', nome: 'Momento', valore: FASI[s.fase] },
           { t: 'riquadro', size: 38, testo: `${TESTO_FASE[s.fase]} {{slide 65}}` },
           ...lez.missioni().slice(3),
         ],
-        dx: [{ t: 'spazio', h: 60 }, { t: 'disegno', h: 760, fn: sezioneFronte }, { t: 'nota', testo: 'Sezione verticale schematica' }],
+        dx: [...Lezione.finestra(540), { t: 'disegno', h: 380, fn: sezioneFronte }, { t: 'nota', testo: 'Trascina la sfera d\'oro: spingi avanti l\'aria fredda. Sezione schematica.' }],
       },
       {
         passo: 3, aletta: lez.fatto.aletta, richiede: lez.fatto.missioni, avviso: 'Se salti, niente bandiera.',

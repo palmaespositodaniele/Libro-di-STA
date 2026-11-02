@@ -42,7 +42,7 @@
 
   /* Elettrodi nella vasca */
   const X = [-0.95, 0.95, 0]; const Y_ACQUA = 1.15; const ALTO = 1.75;
-  const copie = [];
+  const copie = []; const prese = { schermo: [], mini: [] };
   const part = []; for (let i = 0; i < 44; i++) part.push({ t: Math.random() });
   function copia(k) {
     const g = new THREE.Group();
@@ -67,8 +67,9 @@
       sotto.add(new THREE.LineSegments(new THREE.EdgesGeometry(sotto.geometry), new THREE.LineBasicMaterial({ color: COL.inchiostro })));
       perno.add(sotto);
       e.add(sopra, perno);
+      [sopra, sotto].forEach((o) => { o.userData.tocco = `el${i}`; prese[k > 1 ? 'mini' : 'schermo'].push(o); });
       const nomi = METALLI.map((m) => { const t = etichetta(m.nome, 0.3); t.position.set(0, 0.62, 0.3); t.visible = false; e.add(t); return t; });
-      const tagA = etichetta('anodo', 0.26, '#7D5A0C'); tagA.position.set(0, 0.3, 0.3); tagA.visible = false; e.add(tagA);
+      const tagA = etichetta('anodo', 0.26, '#8C7020'); tagA.position.set(0, 0.3, 0.3); tagA.visible = false; e.add(tagA);
       const tagC = etichetta('catodo', 0.26, '#2F7A55'); tagC.position.set(0, 0.3, 0.3); tagC.visible = false; e.add(tagC);
       g.add(e);
       return { e, mat, perno, nomi, tagA, tagC };
@@ -138,6 +139,7 @@
     mondo = {
       radice, stazioni, modellino: mini, vistaIniziale: VISTA,
       lente: () => { disegnaLente(); return texLente; },
+      tocchi: (v) => prese[v === 'mini' ? 'mini' : 'schermo'].filter((o) => o.userData.tocco !== 'el2' || s.anodo),
       frame(dt) {
         const an = anodo();
         if (an) s.cons[an.slot] = Math.min(1, s.cons[an.slot] + dt * 0.05);
@@ -166,7 +168,10 @@
     return mondo;
   }
 
-  function comandi(id) {
+  // Toccando un elettrodo nella vasca si cambia il metallo; toccando lo zinco lo si toglie
+  function comandi(idTocco) {
+    const SUL = { 't:el0': 'a+', 't:el1': 'b+', 't:el2': 'anodo' };
+    const id = SUL[idTocco.split(',')[0]] || idTocco;
     const prima = `${s.a}|${s.b}|${s.anodo}`;
     if (id === 'a+') s.a = (s.a + 1) % METALLI.length;
     if (id === 'a-') s.a = (s.a + METALLI.length - 1) % METALLI.length;

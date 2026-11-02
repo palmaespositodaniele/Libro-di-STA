@@ -1,7 +1,7 @@
 /* Lezione 4: la geometria dello scafo. I moti nel modello sono schematici; dati solo dalle slide 15 e seguenti */
 (function () {
   const N = 4;
-  const { COL, tratto, segmento, etichetta, pedana } = Tavola;
+  const { COL, tratto, segmento, etichetta, pedana, maniglia, cuoci } = Tavola;
   const { C } = Pagina;
   const { insellatura, fondo, mezza, ascissa, L } = Scafo;
   const Y_ACQUA = 6;
@@ -110,7 +110,7 @@
   /* Modello ------------------------------------------------------------------------ */
   function terna(k) {
     const g = new THREE.Group();
-    const assi = {};
+    const assi = {}; const prese = [];
     const O = new THREE.Vector3(L / 2, 0, 0);
     [['x', new THREE.Vector3(1, 0, 0), 68], ['y', new THREE.Vector3(0, 0, 1), 24], ['z', new THREE.Vector3(0, 1, 0), 26]].forEach(([nome, dir, lun]) => {
       const a = new THREE.Group();
@@ -124,13 +124,20 @@
       const e = etichetta(nome, k > 1 ? 8 : 5);
       e.position.copy(fine).addScaledVector(dir, 3);
       a.add(asta, punta, e);
+      // Bersaglio largo e invisibile: un'asta sottile sarebbe difficile da puntare
+      const presa = new THREE.Mesh(new THREE.CylinderGeometry(1.6 * Math.sqrt(k), 1.6 * Math.sqrt(k), lun, 6), new THREE.MeshBasicMaterial({ visible: false }));
+      presa.position.copy(O).addScaledVector(dir, lun / 2);
+      presa.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      presa.userData.tocco = `asse${nome}`;
+      a.add(presa); prese.push(presa);
       g.add(a);
       assi[nome] = mat;
     });
-    return { g, assi };
+    return { g, assi, prese };
   }
 
   const copie = [];
+  const toccabili = { schermo: [], mini: [] };
   function copia(k) {
     const perno = new THREE.Group(); perno.position.set(L / 2, 0, 0);
     const nave = Scafo.crea(k);
@@ -139,8 +146,22 @@
     const taglio = new THREE.Group();
     nave.add(taglio);
     const t = terna(k);
-    copie.push({ perno, taglio, k, assi: t.assi });
+    const lama = maniglia(k > 1 ? 4 : 2.2, 'lama'); lama.visible = false; nave.add(lama);
+    const dove = k > 1 ? 'mini' : 'schermo';
+    toccabili[dove].push(...t.prese, lama);
+    copie.push({ perno, taglio, k, assi: t.assi, lama });
     return { perno, terna: t.g };
+  }
+  // La sfera d'oro sta sul bordo del piano di taglio
+  function posaLama() {
+    const pn = s.piano && PIANI[s.piano];
+    copie.forEach((c) => {
+      c.lama.visible = !!pn;
+      if (!pn) return;
+      if (s.piano === 'orizzontale') c.lama.position.set(L / 2, pn.val, 17);
+      else if (s.piano === 'longitudinale') c.lama.position.set(L / 2, 15, pn.val);
+      else c.lama.position.set(ascissa(pn.val / 20, 6), 15, 0);
+    });
   }
 
   function aggiornaTaglio() {
@@ -154,6 +175,7 @@
       c.taglio.add(pianoDiTaglio(s.piano, pn.val));
       if (pt.length > 3) c.taglio.add(tratto(pt, 0.09 * c.k, COL.ocra));
     });
+    posaLama();
     disegnaLente();
     Motore.sporco();
   }
@@ -189,6 +211,15 @@
     mondo = {
       radice, stazioni, modellino: mini, vistaIniziale: VISTA,
       lente: () => { disegnaLente(); return texLente; },
+      tocchi: (v) => (v === 'mini' ? toccabili.mini : toccabili.schermo),
+      trascina(id, dx, dy) {
+        const pn = PIANI[s.piano]; if (!pn) return;
+        s.resto = (s.resto || 0) + (s.piano === 'orizzontale' ? -dy : dx) / 28;
+        const passi = Math.trunc(s.resto); if (!passi) return;
+        s.resto -= passi;
+        const v = Math.min(pn.max, Math.max(pn.min, pn.val + passi));
+        if (v !== pn.val) { pn.val = v; aggiornaTaglio(); Motore.ridisegna(); }
+      },
       frame(dt) {
         if (!s.moto) return false;
         // A grandezza vera la nave resta ferma: niente moti intorno a chi guarda
@@ -202,7 +233,15 @@
     return mondo;
   }
 
-  function comandi(id) {
+  // Toccando un asse sulla nave: prima la rotazione, poi la traslazione, poi si ferma
+  const SUL_ASSE = { x: ['rollio', 'avanzo'], y: ['beccheggio', 'deriva'], z: ['imbardata', 'sussulto'] };
+  function comandi(idTocco) {
+    let id = idTocco;
+    if (id.startsWith('t:asse')) {
+      const [r, tr] = SUL_ASSE[id[6]];
+      const dopo = s.moto === r ? tr : s.moto === tr ? tr : r;
+      id = `m:${dopo}`;
+    }
     if (id.startsWith('m:')) {
       const m = id.slice(2);
       if (s.moto === m) { s.moto = null; copie.forEach((c) => { c.perno.position.set(L / 2, 0, 0); c.perno.rotation.set(0, 0, 0); }); Motore.sporco(); } else { s.moto = m; s.t = 0; s.testo = MOTI[m].testo; provati.add(m); }
@@ -221,6 +260,62 @@
       aggiornaTaglio();
     }
   }
+
+  /* Seconda simulazione: una fetta di scafo con il fianco e il fondo modificabili */
+  const se = { fianco: 0, fondo: 0.6, copie: [] };
+  const profilo = () => {
+    const B2 = 7; const D = 8; const c = se.fianco;
+    return [[0, se.fondo], [B2 * 0.55, se.fondo * 0.45], [B2 + Math.min(c, 0) * 0.5, 0.6], [B2 + Math.min(c, 0), 1.6], [B2 + c * 0.5, D * 0.6], [B2 + c, D]];
+  };
+  function posaSezione() {
+    const p = profilo(); const LUNGA = 16;
+    se.copie.forEach((c) => {
+      const a = c.geo.attributes.position;
+      for (let i = 0; i < 2; i++) p.forEach(([z, y], j) => a.setXYZ(i * p.length + j, i * LUNGA - LUNGA / 2, y, z));
+      for (let i = 0; i < 2; i++) p.forEach(([z, y], j) => a.setXYZ(2 * p.length + i * p.length + j, i * LUNGA - LUNGA / 2, y, -z));
+      a.needsUpdate = true; c.geo.computeBoundingSphere();
+      cuoci(c.geo, (x, y) => (y < 4 ? Scafo.TINTE.carena : Scafo.TINTE.murata), true);
+      // Tappo davanti: la forma della sezione si legge come un disegno pieno
+      const t = c.tappo.attributes.position; t.setXYZ(0, LUNGA / 2, 8, 0);
+      p.forEach(([z, y], j) => { t.setXYZ(1 + j, LUNGA / 2, y, z); t.setXYZ(1 + p.length + j, LUNGA / 2, y, -z); });
+      t.needsUpdate = true; c.tappo.computeBoundingSphere();
+      c.fianco.position.set(0, 8, p[5][0] + 1); c.fondo.position.set(LUNGA / 2 + 1, se.fondo - 1.6, 0);
+    });
+  }
+  function testoFianco() {
+    if (se.fianco > 0.15) return '**Svasatura** (*countersink*): la semilarghezza diminuisce dal ponte verso la chiglia.';
+    if (se.fianco < -0.15) return '**Rientranza** (*tumblehome*): la semilarghezza aumenta dal ponte verso la chiglia.';
+    return 'Fianco verticale: né svasatura né rientranza.';
+  }
+  const creaSezione = Lezione.simula({
+    scala: 0.03, centro: [0, 4], mare: false, k: 2.5, pedana: [0, 18, 'davanti alla sezione'],
+    vista: () => ({ target: new THREE.Vector3(0, 4, 0), theta: 1.42, phi: 1.42, r: 50 }),
+    modello(k, tocca) {
+      const g = new THREE.Group(); const N6 = 6;
+      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(N6 * 4 * 3), 3));
+      const ind = [];
+      [0, 2].forEach((o) => { for (let j = 0; j < N6 - 1; j++) { const a = o * N6 + j; const b = a + N6; ind.push(a, b, a + 1, b, b + 1, a + 1); } });
+      geo.setIndex(ind);
+      g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+      const tappo = new THREE.BufferGeometry(); tappo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array((1 + 2 * N6) * 3), 3));
+      const it = [];
+      for (let j = 0; j < N6 - 1; j++) { it.push(0, 1 + j, 2 + j, 0, 1 + N6 + j, 2 + N6 + j); }
+      tappo.setIndex(it);
+      g.add(new THREE.Mesh(tappo, new THREE.MeshBasicMaterial({ color: 0x13315C, side: THREE.DoubleSide })));
+      const fianco = maniglia(0.8 * Math.sqrt(k), 'fianco'); const fondo2 = maniglia(0.8 * Math.sqrt(k), 'fondo');
+      g.add(fianco, fondo2); tocca(fianco); tocca(fondo2);
+      se.copie.push({ geo, tappo, fianco, fondo: fondo2 });
+      return g;
+    },
+    dopo: posaSezione,
+    trascina(id, dx, dy) {
+      const f = testoFianco(); const r = Math.round(se.fondo * 10);
+      if (id === 'fianco') se.fianco = Math.max(-2.2, Math.min(2.2, se.fianco - dx * 0.012));
+      if (id === 'fondo') se.fondo = Math.max(0, Math.min(2.4, se.fondo - dy * 0.012));
+      posaSezione();
+      if (testoFianco() !== f || Math.round(se.fondo * 10) !== r) Motore.ridisegna();
+    },
+  });
 
   // Insellatura regolamentare: tabella 6.1, slide 15, con L = 100 m
   const RIGHE_INSELLATURA = [
@@ -281,6 +376,7 @@
           riga(['orizzontale', 'longitudinale', 'trasversale'], PIANI, 'c'),
           ...(pn ? [{ t: 'passo', id: 'pos', nome: pn.unita, valore: `${pn.val}` }] : []),
           ...lez.missioni(),
+          { t: 'nota', testo: 'Tocca un asse sulla nave: gira, poi scorre, poi si ferma. Trascina la sfera d\'oro per muovere il piano di taglio.' },
         ],
         dx: [
           {
@@ -360,6 +456,17 @@
           { t: 'p', size: 38, testo: '**Rientranza** (*tumblehome*): la semilarghezza aumenta dal ponte verso la chiglia. {{slide 18}}' },
           { t: 'p', size: 38, testo: '**Controbordi o bottazzi**: ingrossamento localizzato al galleggiamento, per una migliore stabilità. {{slide 19}}' },
         ],
+      },
+      {
+        passo: 3, mondo: creaSezione,
+        sx: [
+          { t: 'titolo', testo: 'Disegna la sezione' },
+          { t: 'p', size: 38, testo: 'Tira le due sfere d\'oro e guarda come cambia la sezione trasversale. {{slide 17, 18}}' },
+          { t: 'riquadro', size: 38, testo: testoFianco() },
+          { t: 'riquadro', size: 38, testo: se.fondo > 0.02 ? `**Stellatura** (*dead rise*): circa ${Math.round((Math.atan2(se.fondo, 7) * 180) / Math.PI)}° nel modello.` : 'Fondo piatto: nessuna **stellatura**.' },
+          { t: 'nota', testo: 'Forme e angoli schematici: le slide danno le definizioni, non le misure.' },
+        ],
+        dx: Lezione.finestra(760),
       },
       {
         passo: 3,

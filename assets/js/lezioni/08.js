@@ -2,7 +2,7 @@
    delle slide 6, 7, 8. Il tratto di scafo disegnato è schematico */
 (function () {
   const N = 8;
-  const { COL, segmento, etichetta, pedana, compatta } = Tavola;
+  const { COL, segmento, etichetta, pedana, compatta, maniglia } = Tavola;
 
   const MISSIONI = [
     { id: 'tre', testo: 'Guarda tutti e tre i sistemi strutturali.' },
@@ -85,14 +85,18 @@
       });
       const lam = new THREE.Group();
       if (zona === 'fondo') { [0, Y_DF].forEach((y) => { const l = lamiera(LU, 2 * ZF, matLam); l.rotation.x = -Math.PI / 2; l.position.set(LU / 2, y, 0); lam.add(l); }); } else if (zona === 'ponte') { const l = lamiera(LU, 2 * ZF, matLam); l.rotation.x = -Math.PI / 2; l.position.set(LU / 2, Y_P, 0); lam.add(l); } else { const l = lamiera(LU, Y_P - Y_DF, matLam); l.position.set(LU / 2, (Y_P + Y_DF) / 2, sg * (ZF + 0.02)); lam.add(l); }
+      lam.children.forEach((l) => { l.userData.tocco = zona; prese[k > 1 ? 'mini' : 'schermo'].push(l); });
       gz.add(lam);
       g.add(gz);
       zone[id] = { gz, sistemi, lam };
     });
+    const presa = maniglia(k > 1 ? 0.9 : 0.6, 'apri'); presa.position.set(LU / 2, Y_P + 1.6, 0); zone.ponte.gz.add(presa);
+    prese[k > 1 ? 'mini' : 'schermo'].push(presa);
     const e1 = etichetta('prua →', k > 1 ? 1.6 : 1); e1.position.set(LU + 3, 2, 0); g.add(e1);
     copie.push({ g, zone, MAT });
     return g;
   }
+  const prese = { schermo: [], mini: [] };
 
   function aggiorna() {
     copie.forEach((c) => {
@@ -126,6 +130,12 @@
     aggiorna();
     mondo = {
       radice, stazioni, modellino: mini, vistaIniziale: VISTA,
+      tocchi: (v) => prese[v === 'mini' ? 'mini' : 'schermo'],
+      trascina(id, dx, dy) {
+        s.esploso = Math.max(0, Math.min(1, s.esploso - dy * 0.0035)); s.meta = s.esploso;
+        apri(s.esploso);
+        if (s.esploso > 0.6) lez.completa('esploso');
+      },
       frame(dt) {
         if (Math.abs(s.meta - s.esploso) < 0.002) return false;
         s.esploso += (s.meta - s.esploso) * (1 - Math.exp(-dt * 2.5));
@@ -136,7 +146,8 @@
     return mondo;
   }
 
-  function comandi(id) {
+  function comandi(idTocco) {
+    const id = idTocco.startsWith('t:') ? `z:${idTocco.slice(2).split(',')[0]}` : idTocco;
     if (id.startsWith('s:')) { s.sis = id.slice(2); s.visti.add(s.sis); if (s.visti.size === 3) lez.completa('tre'); }
     if (id.startsWith('z:')) { const z = id.slice(2); s.zona = s.zona === z ? null : z; }
     if (id === 'esplodi') { s.meta = s.meta ? 0 : 1; if (s.meta) lez.completa('esploso'); }
@@ -206,7 +217,7 @@
           },
           ...(vr ? [{ t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []),
           { t: 'tabella', col: [16, 36, 24, 24], size: 30, righe: [['Zona', 'Rinforzi ordinari', 'Travi trasv.', 'Travi long.'], riga('fondo', 'Fondo'), riga('fianco', 'Fianco'), riga('ponte', 'Ponte')] },
-          { t: 'nota', testo: 'Tratto di scafo schematico' },
+          { t: 'nota', testo: 'Tocca fondo, fianco o ponte sul modello. Tira su la sfera d\'oro per aprire lo scafo. Tratto schematico.' },
         ],
       },
       {

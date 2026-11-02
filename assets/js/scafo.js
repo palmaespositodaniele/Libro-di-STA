@@ -17,7 +17,7 @@ window.Scafo = (function () {
   const ascissa = (u, y) => L * u + (u > 0.85 ? 4 * (y / 9) ** 1.4 * ((u - 0.85) / 0.15) : 0);
 
   // k ingrossa i tratti: in un modellino le linee vere sarebbero invisibili
-  function crea(k = 1) {
+  function crea(k = 1, nuda = false) {
     const g = new THREE.Group();
     const NU = 72; const NV = 20; const pos = []; const ind = [];
     const riga = NV + 1; const col = NU + 1;
@@ -45,7 +45,7 @@ window.Scafo = (function () {
     const coperta = cuoci(ponte(), TINTE.ponte);
     g.add(new THREE.Mesh(coperta, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })));
 
-    g.add(sovrastrutture());
+    if (!nuda) g.add(sovrastrutture());
     // Orlo di murata, chiglia e dritto
     [1, -1].forEach((lato) => {
       const punti = [];
@@ -57,7 +57,7 @@ window.Scafo = (function () {
     for (let j = 1; j <= 8; j++) { const y = 3 + (j / 8) * (insellatura(1) - 3); profilo.push(new THREE.Vector3(ascissa(1, y), y, 0)); }
     g.add(tratto(profilo, 0.05 * k, 0x2A1A14));
     // Alberi e picchi di carico
-    [[38, 1], [52, 1], [68, -1]].forEach(([x, v]) => {
+    (nuda ? [] : [[38, 1], [52, 1], [68, -1]]).forEach(([x, v]) => {
       const piede = new THREE.Vector3(x, 7.2, 0); const testa = new THREE.Vector3(x, 17, 0);
       g.add(segmento(piede, testa, 0.17 * Math.sqrt(k), TINTE.albero));
       g.add(segmento(new THREE.Vector3(x, 8.4, 0), new THREE.Vector3(x + v * 8.5, 13, 0), 0.08 * Math.sqrt(k), TINTE.albero));
@@ -68,8 +68,8 @@ window.Scafo = (function () {
 
   /* Tinte della nave. La linea di galleggiamento dipinta è a 6 m, come nelle lezioni */
   const TINTE = {
-    carena: '#9C3324', bagnasciuga: '#20201F', murata: '#1F4468', ponte: '#6E8576', tuga: '#F4F0E6', tugaOmbra: '#D9D4C6',
-    boccaporta: '#2F6586', finestra: '#27394B', fumaiolo: '#1F4468', fascia: '#D8A93A', cima: '#20201F', albero: 0xD8A93A,
+    carena: '#9C3324', bagnasciuga: '#20201F', murata: '#13315C', ponte: '#6E8576', tuga: '#F4F0E6', tugaOmbra: '#D8E0EC',
+    boccaporta: '#5B6B7C', finestra: '#1F2A37', fumaiolo: '#0B2545', fascia: '#C9A227', cima: '#20201F', albero: 0xC9A227,
   };
   const ACQUA = 6; const ALTO = 11;
   let telaScafo = null;

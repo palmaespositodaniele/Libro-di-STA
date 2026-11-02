@@ -61,7 +61,7 @@ window.Ambiente = (function () {
   function compasso(c, x, y, ang, l) {
     c.save(); c.translate(x, y); c.rotate(ang);
     c.shadowColor = 'rgba(0,0,0,0.45)'; c.shadowBlur = 10; c.shadowOffsetX = 4; c.shadowOffsetY = 5;
-    c.strokeStyle = '#B9974A'; c.lineCap = 'round';
+    c.strokeStyle = '#C9A227'; c.lineCap = 'round';
     [-0.13, 0.13].forEach((a) => { c.save(); c.rotate(a); c.lineWidth = 12; c.beginPath(); c.moveTo(0, 0); c.lineTo(0, l * 0.8); c.stroke(); c.strokeStyle = '#C9CCD0'; c.lineWidth = 4; c.beginPath(); c.moveTo(0, l * 0.8); c.lineTo(0, l); c.stroke(); c.restore(); });
     c.fillStyle = '#D9B765'; c.beginPath(); c.arc(0, 0, 17, 0, Math.PI * 2); c.fill();
     c.restore();
@@ -81,7 +81,7 @@ window.Ambiente = (function () {
       c.save(); c.translate(cx + 0.72 * m, cy + 0.04 * m); c.rotate(0.08);
       c.shadowColor = 'rgba(0,0,0,0.45)'; c.shadowBlur = 10; c.shadowOffsetX = 4; c.shadowOffsetY = 5;
       c.fillStyle = '#4A2C18'; c.fillRect(-0.03 * m, -0.34 * m, 0.04 * m, 0.68 * m);
-      c.fillStyle = '#C9A24E'; c.fillRect(0.024 * m, -0.34 * m, 0.012 * m, 0.68 * m);
+      c.fillStyle = '#C9A227'; c.fillRect(0.024 * m, -0.34 * m, 0.012 * m, 0.68 * m);
       c.restore();
       // La luce della lampada cade sul libro
       const g = c.createRadialGradient(cx, cy, 0.5 * m, cx, cy, 1.5 * m);
@@ -98,7 +98,7 @@ window.Ambiente = (function () {
       for (let i = 0; i < 16; i++) { const x = (i * 1024) / 16; c.beginPath(); c.moveTo(x, 0); c.lineTo(x, 300); c.stroke(); }
       assi(c, 0, 300, 1024, 212, 8, LEGNO.teak, 21, true);
       c.fillStyle = 'rgba(30,15,5,0.05)'; for (let i = 0; i < 50; i++) c.fillRect(r() * 1024, r() * 300, 2, 2);
-      c.fillStyle = '#B9974A'; c.fillRect(0, 292, 1024, 10);
+      c.fillStyle = '#C9A227'; c.fillRect(0, 292, 1024, 10);
       c.fillStyle = '#7A5A2C'; c.fillRect(0, 300, 1024, 3);
       const g = c.createLinearGradient(0, 0, 0, 80); g.addColorStop(0, 'rgba(60,40,20,0.3)'); g.addColorStop(1, 'rgba(60,40,20,0)');
       c.fillStyle = g; c.fillRect(0, 0, 1024, 80);
@@ -159,7 +159,7 @@ window.Ambiente = (function () {
       for (let i = 0; i < 46; i++) { const y = 280 + r() * 226; const x = r() * 512; const l = 14 + ((y - 270) / 242) * 46; c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + l / 2, y - 4, x + l, y); c.stroke(); }
     });
     const ottone = new THREE.MeshBasicMaterial({ vertexColors: true });
-    const anello = cuoci(new THREE.TorusGeometry(0.37, 0.055, 12, 40), '#C9A24E');
+    const anello = cuoci(new THREE.TorusGeometry(0.37, 0.055, 12, 40), '#C9A227');
     function oblo(x, y, z, ry) {
       const o = new THREE.Group(); o.position.set(x, y, z); o.rotation.y = ry;
       o.add(new THREE.Mesh(new THREE.CircleGeometry(0.36, 40), new THREE.MeshBasicMaterial({ map: fuori })));
@@ -182,7 +182,7 @@ window.Ambiente = (function () {
     ruota.add(new THREE.Mesh(legnoRuota, new THREE.MeshBasicMaterial({ vertexColors: true })));
     const raggio = cuoci(new THREE.CylinderGeometry(0.018, 0.018, 0.84, 6), '#7A4E2D');
     for (let i = 0; i < 4; i++) { const r = new THREE.Mesh(raggio, new THREE.MeshBasicMaterial({ vertexColors: true })); r.rotation.z = (i * Math.PI) / 4; ruota.add(r); }
-    const mozzo = new THREE.Mesh(cuoci(new THREE.CylinderGeometry(0.07, 0.07, 0.06, 16), '#C9A24E'), ottone); mozzo.rotation.x = Math.PI / 2; ruota.add(mozzo);
+    const mozzo = new THREE.Mesh(cuoci(new THREE.CylinderGeometry(0.07, 0.07, 0.06, 16), '#C9A227'), ottone); mozzo.rotation.x = Math.PI / 2; ruota.add(mozzo);
     ruota.position.set(X - 0.1, 1.5, -0.7); ruota.rotation.y = -Math.PI / 2; g.add(ruota);
 
     // Orologio di bordo
@@ -194,14 +194,22 @@ window.Ambiente = (function () {
     });
     const orologio = new THREE.Group();
     orologio.add(new THREE.Mesh(new THREE.CircleGeometry(0.17, 32), new THREE.MeshBasicMaterial({ map: quadrante })));
-    const ghiera = new THREE.Mesh(cuoci(new THREE.TorusGeometry(0.18, 0.025, 10, 32), '#C9A24E'), ottone); orologio.add(ghiera);
+    const ghiera = new THREE.Mesh(cuoci(new THREE.TorusGeometry(0.18, 0.025, 10, 32), '#C9A227'), ottone); orologio.add(ghiera);
     orologio.position.set(0, 2.05, ZB - 0.01); orologio.rotation.y = Math.PI; g.add(orologio);
+
+    // Stemma del docente, sulla parete dietro
+    const targa = tela(512, 512, (c) => {
+      c.fillStyle = '#3D2616'; c.fillRect(0, 0, 512, 512);
+      c.strokeStyle = '#C9A227'; c.lineWidth = 10; c.strokeRect(14, 14, 484, 484);
+      c.drawImage(Stemma.img, 36, 36, 440, 440);
+    });
+    g.add(piano(0.8, 0.8, targa, -1.3, 1.5, ZB - 0.012, Math.PI));
 
     // Porta
     const porta = tela(512, 1024, (c) => {
       assi(c, 0, 0, 512, 1024, 5, LEGNO.scuro, 51, true);
-      c.strokeStyle = '#B9974A'; c.lineWidth = 8; c.strokeRect(10, 10, 492, 1004);
-      c.fillStyle = '#C9A24E'; c.beginPath(); c.arc(440, 540, 22, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = '#C9A227'; c.lineWidth = 8; c.strokeRect(10, 10, 492, 1004);
+      c.fillStyle = '#C9A227'; c.beginPath(); c.arc(440, 540, 22, 0, Math.PI * 2); c.fill();
     });
     g.add(piano(0.95, 2.05, porta, 1.5, 1.03, ZB - 0.012, Math.PI));
 
@@ -209,7 +217,7 @@ window.Ambiente = (function () {
     const lampada = new THREE.Group(); lampada.position.set(0, H, -1.5);
     lampada.add(new THREE.Mesh(cuoci(new THREE.CylinderGeometry(0.012, 0.012, 0.42, 6), '#7A5A2C'), ottone));
     lampada.children[0].position.y = -0.21;
-    const cappello = new THREE.Mesh(cuoci(new THREE.CylinderGeometry(0.06, 0.2, 0.14, 20, 1, true), '#C9A24E'), new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+    const cappello = new THREE.Mesh(cuoci(new THREE.CylinderGeometry(0.06, 0.2, 0.14, 20, 1, true), '#C9A227'), new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide }));
     cappello.position.y = -0.48; lampada.add(cappello);
     const vetro = new THREE.Mesh(new THREE.SphereGeometry(0.075, 14, 10), new THREE.MeshBasicMaterial({ color: 0xFFF1C9 })); vetro.position.y = -0.53; lampada.add(vetro);
     const alone = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -221,19 +229,50 @@ window.Ambiente = (function () {
     return g;
   }
 
-  /* Leggio del libro, nel visore: tavola inclinata dietro al libro e colonna fino al pavimento */
+  /* Sostegni del libro nel visore. Il libro sta in basso: poggia su un piano inclinato (tavola e zeppe)
+     sopra un tavolo vero. A grandezza vera il tavolo sparisce e resta una colonna */
   function leggio() {
     const legno = tela(512, 384, (c) => {
       assi(c, 0, 0, 512, 384, 5, LEGNO.teak, 61, false);
-      c.strokeStyle = '#B9974A'; c.lineWidth = 8; c.strokeRect(6, 6, 500, 372);
+      c.strokeStyle = '#C9A227'; c.lineWidth = 8; c.strokeRect(6, 6, 500, 372);
     });
-    const piatto = new THREE.MeshBasicMaterial({ color: '#5E3920' });
+    const piatto = new THREE.MeshBasicMaterial({ color: '#5E3920', side: THREE.DoubleSide });
     const tavola = new THREE.Mesh(new THREE.BoxGeometry(1.24, 0.92, 0.03), [piatto, piatto, piatto, piatto, new THREE.MeshBasicMaterial({ map: legno }), piatto]);
     tavola.position.z = -0.052;
+
+    // Fianchi e schiena del piano inclinato, in coordinate del libro
+    const zeppe = new THREE.Group();
+    const Y = 0.46; const Zp = -0.067; const B = [0.15, -0.49];
+    [-0.62, 0.62].forEach((x) => {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute([x, -Y, Zp, x, Y, Zp, x, B[0], B[1]], 3));
+      zeppe.add(new THREE.Mesh(geo, piatto));
+    });
+    const schiena = new THREE.BufferGeometry();
+    schiena.setAttribute('position', new THREE.Float32BufferAttribute([-0.62, Y, Zp, 0.62, Y, Zp, 0.62, B[0], B[1], -0.62, B[0], B[1]], 3));
+    schiena.setIndex([0, 1, 2, 0, 2, 3]);
+    zeppe.add(new THREE.Mesh(schiena, piatto));
+
+    // Tavolo da carteggio: alto 1 prima di scalarlo sull'altezza di chi guarda
+    const banco = new THREE.Group();
+    const piano3 = tela(1024, 680, (c) => {
+      assi(c, 0, 0, 1024, 680, 7, LEGNO.teak, 71, false);
+      c.save(); c.shadowColor = 'rgba(0,0,0,0.5)'; c.shadowBlur = 14; c.shadowOffsetY = 5; carta(c, 700, 90, 280, 200); c.restore();
+      compasso(c, 120, 90, 2.2, 150);
+    });
+    const fianco = new THREE.MeshBasicMaterial({ color: '#4A2C18' });
+    const ripiano = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.05, 1.2), [fianco, fianco, new THREE.MeshBasicMaterial({ map: piano3 }), fianco, fianco, fianco]);
+    ripiano.position.y = 0.975; banco.add(ripiano);
+    const gamba = cuoci(new THREE.BoxGeometry(0.09, 0.95, 0.09), '#5E3920'); const matGamba = new THREE.MeshBasicMaterial({ vertexColors: true });
+    [[-0.8, -0.5], [0.8, -0.5], [-0.8, 0.5], [0.8, 0.5]].forEach(([x, z]) => { const m = new THREE.Mesh(gamba, matGamba); m.position.set(x, 0.475, z); banco.add(m); });
+
     const colonna = new THREE.Group();
-    const fusto = new THREE.Mesh(cuoci(new THREE.CylinderGeometry(0.07, 0.1, 1, 16), '#6B4226'), new THREE.MeshBasicMaterial({ vertexColors: true }));
+    const fusto = new THREE.Mesh(cuoci(new THREE.CylinderGeometry(0.07, 0.1, 1, 16), '#6B4226'), matGamba);
     fusto.position.y = 0.5; colonna.add(fusto);
-    return { tavola, colonna };
+
+    // Fascio di luce: la simulazione si alza dalla pagina
+    const fascio = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.16, 1, 32, 1, true), new THREE.MeshBasicMaterial({ color: 0xE3C878, transparent: true, opacity: 0.13, depthWrite: false, side: THREE.DoubleSide }));
+    return { tavola, zeppe, banco, colonna, fascio };
   }
 
   return { tavolo, stanza, leggio };

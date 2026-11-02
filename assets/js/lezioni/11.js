@@ -103,7 +103,7 @@
   }
 
   /* Modello --------------------------------------------------------------------------- */
-  const copie = [];
+  const copie = []; const prese = { schermo: [], mini: [] }; let restoBarra = 0;
   function copia(k) {
     const nave = new THREE.Group();     // posizione e prora
     const rollio = new THREE.Group();   // sbandamento
@@ -114,6 +114,9 @@
     t.g.position.x = -L / 2 - 1.6;
     rollio.add(scafo, t.g);
     nave.add(rollio);
+    // Sfera d'oro a poppa: tirandola di lato si mette barra
+    const presa = Tavola.maniglia(k > 1 ? 16 : 7, 'barra'); presa.position.set(-L / 2 - 6, 16, 0); nave.add(presa);
+    prese[k > 1 ? 'mini' : 'schermo'].push(presa);
     const NS = 110;
     const scia = new THREE.InstancedMesh(new THREE.CylinderGeometry(k > 1 ? 7 : 4, k > 1 ? 7 : 4, 0.4, 10), new THREE.MeshBasicMaterial({ color: COL.ocra }), NS);
     scia.frustumCulled = false;
@@ -165,6 +168,14 @@
     mondo = {
       radice, stazioni, modellino: mini, vistaIniziale: VISTA,
       lente: () => { disegnaLente(); return texLente; },
+      tocchi: (v) => prese[v === 'mini' ? 'mini' : 'schermo'],
+      trascina(id, dx) {
+        restoBarra += dx / 22;
+        const n = Math.trunc(restoBarra); if (!n) return;
+        restoBarra -= n;
+        for (let i = 0; i < Math.abs(n); i++) comandi(n > 0 ? 'a+' : 'a-');
+        Motore.ridisegna();
+      },
       frame(dt) {
         const a0 = rad(s.alfa);
         const fermiVera = Motore.presente() && Motore.scalaVera();
@@ -257,6 +268,7 @@
           { t: 'bottoni', h: 84, size: 32, lista: [{ id: 'a0', testo: 'Barra al centro' }, { id: 'scia', testo: 'Cancella la scia' }] },
           { t: 'riquadro', size: 36, testo: giudizio },
           ...lez.missioni(),
+          { t: 'nota', testo: 'Tira di lato la sfera d\'oro a poppa: metti barra.' },
         ],
         dx: [
           {

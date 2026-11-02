@@ -2,12 +2,12 @@
    Cantiere, bacino e dimensioni sono schematici */
 (function () {
   const N = 6;
-  const { COL, tratto, segmento, tela, etichetta, pedana, scatola, compatta } = Tavola;
+  const { COL, tratto, segmento, tela, etichetta, pedana, scatola, compatta, maniglia } = Tavola;
   const { fiancata, griglia, insellatura, mezza, ascissa, fondo, L } = Scafo;
 
   const MISSIONI = [
     { id: 'ordine', testo: 'Metti le sei fasi nell\'ordine giusto.' },
-    { id: 'varo', testo: 'Guarda allagare il bacino: è il varo tecnico.' },
+    { id: 'varo', testo: 'Allaga il bacino con la sfera d\'oro: è il varo tecnico.' },
   ];
   const QUIZ = [
     { n: 1, testo: 'Chi decide di far costruire una nave?', scelte: ['L\'armatore', 'Il cantiere', 'La capitaneria'], giusta: 0, perche: 'L\'idea nasce dalla volontà di un armatore di ampliare o rinnovare la flotta.' },
@@ -57,17 +57,17 @@
   function pianoProgetto() {
     return new THREE.Mesh(new THREE.PlaneGeometry(40, 16), new THREE.MeshBasicMaterial({
       map: tela(1024, 410, (c) => {
-        c.fillStyle = '#F6F3E8'; c.fillRect(0, 0, 1024, 410);
-        c.strokeStyle = '#C9D8E6'; c.lineWidth = 2; c.beginPath();
+        c.fillStyle = '#FBFAF4'; c.fillRect(0, 0, 1024, 410);
+        c.strokeStyle = '#D8E0EC'; c.lineWidth = 2; c.beginPath();
         for (let x = 0; x <= 1024; x += 40) { c.moveTo(x, 0); c.lineTo(x, 410); }
         for (let y = 0; y <= 410; y += 40) { c.moveTo(0, y); c.lineTo(1024, y); }
         c.stroke();
-        c.strokeStyle = '#12355B'; c.lineWidth = 5; c.beginPath();
+        c.strokeStyle = '#0B2545'; c.lineWidth = 5; c.beginPath();
         c.moveTo(60, 150); c.bezierCurveTo(220, 200, 620, 210, 960, 110); c.lineTo(900, 300); c.quadraticCurveTo(890, 320, 850, 320); c.lineTo(120, 320); c.quadraticCurveTo(90, 320, 76, 280); c.closePath(); c.stroke();
-        c.strokeStyle = '#4A76A8'; c.lineWidth = 2; c.beginPath();
+        c.strokeStyle = '#5B6B7C'; c.lineWidth = 2; c.beginPath();
         for (let x = 140; x < 900; x += 76) { c.moveTo(x, 190); c.lineTo(x, 320); }
         c.moveTo(70, 250); c.lineTo(925, 250); c.stroke();
-        c.fillStyle = '#12355B'; c.font = '44px Disegno, cursive'; c.fillText('piano di costruzione', 330, 380);
+        c.fillStyle = '#0B2545'; c.font = '44px Disegno, cursive'; c.fillText('piano di costruzione', 330, 380);
       }),
     }));
   }
@@ -102,9 +102,12 @@
     const blocchi = [];
     for (let i = 0; i < NB; i++) { const b = blocco(i, k); g.add(b); blocchi.push(b); }
     const finita = Scafo.crea(k); finita.visible = false; g.add(finita);
-    copie.push({ g, blocchi, finita, progetto, lamiere, acquaB, porta });
+    const presa = maniglia(k > 1 ? 6 : 3, 'avanza'); g.add(presa);
+    prese[k > 1 ? 'mini' : 'schermo'].push(presa);
+    copie.push({ g, blocchi, finita, progetto, lamiere, acquaB, porta, presa });
     return g;
   }
+  const prese = { schermo: [], mini: [] };
 
   const liscia = (t) => { const x = Math.max(0, Math.min(1, t)); return x * x * (3 - 2 * x); };
 
@@ -130,6 +133,9 @@
       c.porta.visible = f < 5;
       c.finita.visible = f === 5;
       if (f === 5) c.finita.position.set(liscia(a) * 118, LIV - 6, 0);
+      // La sfera d'oro è il lavoro che avanza: gru, valvole del bacino, rimorchio
+      c.presa.visible = f >= 3;
+      c.presa.position.set((f === 5 ? 60 : 8) + a * (f === 5 ? 118 : 74), 12, -Z_GRU);
     });
   }
 
@@ -147,15 +153,17 @@
     applica();
     mondo = {
       radice, stazioni, modellino: mini, vistaIniziale: VISTA,
-      frame(dt) {
-        if (s.a >= 1) return false;
-        s.a = Math.min(1, s.a + dt / (s.f === 3 ? 7 : 3.5));
+      tocchi: (v) => (s.f >= 3 ? prese[v === 'mini' ? 'mini' : 'schermo'] : []),
+      trascina(id, dx) {
+        s.a = Math.max(0, Math.min(1, s.a + dx * 0.004));
+        if (s.a >= 1 && s.f === 4) { lez.completa('varo'); Motore.ridisegna(); }
         applica();
-        return true;
       },
+      frame() { return false; },
     };
     return mondo;
   }
+  const Z_GRU = 20;
 
   function comandi(id) {
     if (id === 'ricomincia') { s.f = 0; s.a = 1; s.fatte = 1; s.errore = ''; s.testo = null; applica(); Motore.sporco(); return; }
@@ -169,7 +177,6 @@
     if (i <= 2) Motore.vista({ target: new THREE.Vector3(45, 0, 30), r: 105, phi: 0.95 });
     else if (i <= 4) Motore.vista({ target: new THREE.Vector3(45, -3, 2), r: 125, phi: 1.02 });
     else Motore.vista({ target: new THREE.Vector3(125, -2, 0), r: 150, phi: 1.1 });
-    if (i === 4) lez.completa('varo');
     if ((s.fatte || 1) === FASI.length) lez.completa('ordine');
     applica(); Motore.sporco();
   }
@@ -230,7 +237,7 @@
           },
           ...(vr ? [{ t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []),
           { t: 'riquadro', size: 36, testo: s.testo || FASI[0].testo },
-          { t: 'nota', testo: 'Cantiere schematico' },
+          { t: 'nota', testo: 'Dal montaggio in poi trascina la sfera d\'oro: muovi tu la gru, l\'acqua, il rimorchio. Cantiere schematico.' },
         ],
       },
       {

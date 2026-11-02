@@ -2,7 +2,7 @@
    Le immersioni della nave disegnata le sceglie lo studente: non sono dati */
 (function () {
   const N = 9;
-  const { COL, tratto, etichetta, pedana } = Tavola;
+  const { COL, tratto, etichetta, pedana, maniglia, cuoci } = Tavola;
   const { C } = Pagina;
   const { ascissa, L } = Scafo;
 
@@ -96,10 +96,17 @@
       e.position.set(x, 19, 0);
       nave.add(e);
     });
+    // Due sfere d'oro sulla coperta: tirandole giù si carica quell'estremità
+    [[4, 'ta'], [fp - 4, 'tf']].forEach(([x, id]) => {
+      const m = maniglia(k > 1 ? 3.6 : 2, id); m.position.set(x, 13, 0); nave.add(m);
+      prese[k > 1 ? 'mini' : 'schermo'].push(m);
+    });
     perno.add(nave);
     copie.push({ perno, nave });
     return perno;
   }
+  const prese = { schermo: [], mini: [] };
+  const peso = { ta: 0, tf: 0 };
 
   const VISTA = () => ({ target: new THREE.Vector3(45, 3, 0), theta: 0.15, phi: 1.42, r: 124 });
   let mondo = null;
@@ -121,6 +128,15 @@
     mondo = {
       radice, stazioni, modellino: mini, vistaIniziale: VISTA,
       lente: () => { disegnaLente(); return texLente; },
+      tocchi: (v) => (v === 'mini' ? prese.mini : prese.schermo),
+      trascina(id, dx, dy) {
+        peso[id] += dy / 9;
+        const n = Math.trunc(peso[id]); if (!n) return;
+        peso[id] -= n;
+        const prima = s[id];
+        s[id] = Math.min(6.6, Math.max(4.5, Math.round((s[id] + n * 0.05) * 100) / 100));
+        if (s[id] !== prima) { verifica(); Motore.ridisegna(); }
+      },
       frame(dt) {
         const k = 1 - Math.exp(-dt * 3);
         vis.ta += (s.ta - vis.ta) * k; vis.tf += (s.tf - vis.tf) * k;
@@ -147,15 +163,72 @@
     if (id === 'ta-') s.ta = lim(s.ta - passo);
     if (id === 'tf+') s.tf = lim(s.tf + passo);
     if (id === 'tf-') s.tf = lim(s.tf - passo);
+    verifica();
+  }
+  function verifica() {
     if (s.ta > s.tf) lez.completa('poppa');
     if (Math.abs(s.tf - 4.9) < 0.001) lez.completa('lettura');
+  }
+  function segnaCb() {
+    s.vistiCb.add(s.cb);
+    if (s.vistiCb.has(0.85) && s.vistiCb.has(0.5)) lez.completa('cb');
+    posaCarena();
   }
   function comandiCb(id) {
     if (!id.startsWith('b:')) return;
     s.cb = Number(id.slice(2));
-    s.vistiCb.add(s.cb);
-    if (s.vistiCb.has(0.85) && s.vistiCb.has(0.5)) lez.completa('cb');
+    segnaCb();
+    Motore.sporco();
   }
+
+  /* Il parallelepipedo e la carena dentro: la pianta ha la stessa frazione CB del rettangolo */
+  const LB = 60; const BB = 18; const TB = 7; const NP = 48;
+  const car = { copie: [], resto: 0 };
+  function posaCarena() {
+    const n = esponente(s.cb);
+    car.copie.forEach((c) => {
+      const a = c.geo.attributes.position;
+      for (let i = 0; i <= NP; i++) {
+        const t = (i / NP) * Math.PI * 2;
+        const x = Math.sign(Math.cos(t)) * Math.abs(Math.cos(t)) ** (2 / n); const z = Math.sign(Math.sin(t)) * Math.abs(Math.sin(t)) ** (2 / n);
+        a.setXYZ(i * 2, (x * LB) / 2, TB, (z * BB) / 2); a.setXYZ(i * 2 + 1, (x * LB) / 2, 0, (z * BB) / 2);
+        a.setXYZ(2 * (NP + 1) + i, (x * LB) / 2, TB, (z * BB) / 2);
+      }
+      a.setXYZ(3 * (NP + 1), 0, TB, 0);
+      a.needsUpdate = true; c.geo.computeBoundingSphere();
+      cuoci(c.geo, (x, y) => (y > TB - 0.01 ? Scafo.TINTE.ponte : Scafo.TINTE.murata));
+      c.presa.position.x = ((s.cb - 0.5) / 0.35) * (LB / 2 - 8) - 6;
+    });
+  }
+  const creaCarena = Lezione.simula({
+    scala: 0.015, centro: [0, 2], k: 2.5, pedana: [0, 34, 'accanto alla carena'], dopo: posaCarena,
+    vista: () => ({ target: new THREE.Vector3(0, 2, 0), theta: 0.5, phi: 0.95, r: 92 }),
+    modello(k, tocca) {
+      const g = new THREE.Group();
+      const geo = new THREE.BufferGeometry(); const v = 3 * (NP + 1) + 1;
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(v * 3), 3));
+      const ind = [];
+      for (let i = 0; i < NP; i++) { const a = i * 2; ind.push(a, a + 1, a + 2, a + 1, a + 3, a + 2, 2 * (NP + 1) + i, 2 * (NP + 1) + i + 1, 3 * (NP + 1)); }
+      geo.setIndex(ind);
+      const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+      g.add(m);
+      const scatola = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(LB, TB, BB)), new THREE.LineBasicMaterial({ color: COL.ocra }));
+      scatola.position.y = TB / 2; g.add(scatola);
+      const vetro = new THREE.Mesh(new THREE.BoxGeometry(LB, TB, BB), new THREE.MeshBasicMaterial({ color: COL.ocra, transparent: true, opacity: 0.1, depthWrite: false, side: THREE.DoubleSide }));
+      vetro.position.y = TB / 2; g.add(vetro);
+      const presa = maniglia(Math.sqrt(k) * 2, 'cb'); presa.position.set(0, TB + 3, 0); g.add(presa); tocca(presa);
+      car.copie.push({ geo, m, presa });
+      return g;
+    },
+    trascina(id, dx) {
+      car.resto += dx / 12;
+      const n = Math.trunc(car.resto); if (!n) return;
+      car.resto -= n;
+      const prima = s.cb;
+      s.cb = Math.min(0.85, Math.max(0.5, Math.round((s.cb + n * 0.01) * 100) / 100));
+      if (s.cb !== prima) { segnaCb(); Motore.ridisegna(); }
+    },
+  });
 
   lez.registra(() => {
     const p = Libro.stato(N).prevedi;
@@ -215,11 +288,11 @@
           },
           ...(vr ? [{ t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []),
           { t: 'zona', id: 'lente', h: 430 },
-          { t: 'nota', testo: 'Numeri ogni 20 cm, alti 10 cm: la base indica il valore. Se l\'acqua taglia a metà un numero, il pescaggio supera di circa 5 cm il valore di quel numero (slide 24). Disegno schematico, assetto in scala vera.' },
+          { t: 'nota', testo: 'Tira giù una sfera d\'oro per caricare quell\'estremità. Numeri ogni 20 cm, alti 10 cm: la base indica il valore. Se l\'acqua taglia a metà un numero, il pescaggio supera di circa 5 cm quel valore (slide 24).' },
         ],
       },
       {
-        passo: 2, azione: comandiCb,
+        passo: 2, azione: comandiCb, mondo: creaCarena,
         sx: [
           { t: 'titolo', testo: 'Nave tozza, nave snella' },
           { t: 'p', testo: 'CB dice quale frazione del parallelepipedo circoscritto è davvero occupata dalla carena. {{slide 36}}' },
@@ -228,8 +301,8 @@
           ...lez.missioni().slice(2),
         ],
         dx: [
-          { t: 'disegno', h: 460, fn: schemaCb },
-          { t: 'nota', testo: 'Forma schematica con la stessa frazione del rettangolo' },
+          ...Lezione.finestra(560),
+          { t: 'nota', testo: `CB = ${virgola(s.cb)}. Trascina la sfera d'oro: forma schematica con la stessa frazione del parallelepipedo.` },
           { t: 'formula', testo: '∇ = LWL · BWL · T · CB' },
           { t: 'p', size: 38, testo: `Con LWL = 192 m, BWL = 32 m, T = 6,8 m: ∇ = **${interoSpaziato(volume)} m³** {{dati: slide 37}}` },
         ],

@@ -33,7 +33,7 @@
     { testo: '40 000 km / 360 = 111,11 km: è 1 grado. Ha 60 primi.', vista: { target: new THREE.Vector3(18, CY, 0), r: 88 } },
     { testo: '111 111 m / 60 = 1851,85 m ≈ 1852 m: è 1 primo, cioè 1 miglio.', vista: { target: new THREE.Vector3(24, CY, 0), r: 128 } },
   ];
-  const copieGlobo = [];
+  const copieGlobo = []; const toccaGlobo = { schermo: [], mini: [] };
   function cerchio(punto, raggio, col) {
     const q = []; for (let i = 0; i < 48; i++) q.push(punto((i / 48) * Math.PI * 2));
     return tratto(q, raggio, col, true);
@@ -54,6 +54,7 @@
     const g = new THREE.Group(); const c = new THREE.Vector3(0, CY, 0);
     const sfera = new THREE.Mesh(new THREE.SphereGeometry(R, 40, 24), new THREE.MeshBasicMaterial({ color: COL.scafo, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 }));
     sfera.position.copy(c); g.add(sfera);
+    sfera.userData.tocco = 'globo'; toccaGlobo[k > 1 ? 'mini' : 'schermo'].push(sfera);
     const reticolo = new THREE.Group();
     [-60, -30, 0, 30, 60].forEach((a) => {
       const l = (a * Math.PI) / 180;
@@ -66,7 +67,7 @@
     g.add(compatta(reticolo));
     g.add(cerchio((t) => new THREE.Vector3((R + 0.1) * Math.cos(t), CY + (R + 0.1) * Math.sin(t), 0), 0.16 * k, COL.ocra));
     const dim = 3 + k;
-    const nome = etichetta('meridiano: 40 000 km', dim, '#8A6410'); nome.position.set(0, CY + R + 3, 0); g.add(nome);
+    const nome = etichetta('meridiano: 40 000 km', dim, '#8C7020'); nome.position.set(0, CY + R + 3, 0); g.add(nome);
 
     const p = new THREE.Vector3(c.x + R * Math.cos(LAT), c.y + R * Math.sin(LAT), 0);
     const punto = new THREE.Mesh(new THREE.SphereGeometry(0.5 * k, 12, 8), new THREE.MeshBasicMaterial({ color: COL.rosso }));
@@ -77,7 +78,7 @@
     uno.add(compatta(r1.g), punto, lat);
     uno.add(segmento(p, r1.p(0), 0.05 * k, COL.rosso), segmento(p, r1.p(1), 0.05 * k, COL.rosso));
     const e1 = etichetta('1° = 111,11 km', dim); e1.position.set(23, CY + 12.6, 0); uno.add(e1);
-    const e11 = etichetta('60 primi', dim, '#4A76A8'); e11.position.set(23, CY - 12.6, 0); uno.add(e11);
+    const e11 = etichetta('60 primi', dim, '#5B6B7C'); e11.position.set(23, CY - 12.6, 0); uno.add(e11);
     g.add(uno);
 
     const due = new THREE.Group(); const r2 = righello(48, 10, k, COL.rosso);
@@ -99,7 +100,7 @@
     if (mondoGlobo) return mondoGlobo;
     const radice = new THREE.Group();
     radice.add(globo(1), Scafo.mare());
-    const fine = etichetta('non in scala', 2.4, '#4A76A8'); fine.position.set(30, 1.8, 6); radice.add(fine);
+    const fine = etichetta('non in scala', 2.4, '#5B6B7C'); fine.position.set(30, 1.8, 6); radice.add(fine);
     const stazioni = [
       { pedana: pedana(0, 36, 'davanti al globo'), pos: new THREE.Vector3(0, 0.25, 36), yaw: 0 },
       { pedana: pedana(36, 34, 'davanti ai righelli'), pos: new THREE.Vector3(36, 0.25, 34), yaw: 0 },
@@ -111,11 +112,14 @@
     mondoGlobo = {
       radice, stazioni, modellino: mini,
       vistaIniziale: () => ({ target: LIVELLI[0].vista.target.clone(), theta: 0, phi: 1.52, r: 64 }),
+      tocchi: (v) => toccaGlobo[v === 'mini' ? 'mini' : 'schermo'],
       frame() { return false; },
     };
     return mondoGlobo;
   }
-  function comandiGlobo(id) {
+  function comandiGlobo(idTocco) {
+    // Toccando il globo si divide; all'ultimo tocco si ricomincia
+    const id = idTocco.startsWith('t:') ? (s.livello < 2 ? 'dividi' : 'daccapo') : idTocco;
     if (id === 'dividi' && s.livello < 2) {
       s.livello += 1;
       if (s.livello === 2) lez.completa('primo');
@@ -130,13 +134,17 @@
   const PASSO = 15.433; const TEMPO = 30; const ACCELERA = 3;
   const VEL = [8, 12, 17]; // 17 nodi è l'esempio della slide 17; le altre sono scelte qui
   const MANI = new THREE.Vector3(1.3, 4.8, 0); const ROTOLO = new THREE.Vector3(3.1, 5, 0);
-  const copieSolco = [];
+  const copieSolco = []; const toccaSolco = { schermo: [], mini: [] };
   function solco(k) {
     const g = new THREE.Group();
     const nave = Scafo.crea(k); nave.position.y = -6; g.add(nave);
     const inc = new THREE.MeshBasicMaterial({ color: COL.inchiostro });
     const rotolo = new THREE.Mesh(new THREE.CylinderGeometry(0.4 * k, 0.4 * k, 1.2 * k, 12), inc);
     rotolo.rotation.x = Math.PI / 2; rotolo.position.copy(ROTOLO); g.add(rotolo);
+    // Bersaglio largo: toccando il rotolo si lancia la barchetta
+    const lancio = new THREE.Mesh(new THREE.SphereGeometry(3 * Math.sqrt(k), 8, 6), new THREE.MeshBasicMaterial({ visible: false }));
+    lancio.position.copy(ROTOLO); lancio.userData.tocco = 'lancia'; g.add(lancio);
+    toccaSolco[k > 1 ? 'mini' : 'schermo'].push(lancio);
     const mani = new THREE.Mesh(new THREE.TorusGeometry(0.55 * k, 0.1 * k, 6, 18), new THREE.MeshBasicMaterial({ color: COL.rosso }));
     mani.position.copy(MANI); mani.rotation.y = Math.PI / 2; g.add(mani);
     const sopra = segmento(ROTOLO, MANI, 0.05 * k, COL.inchiostro); g.add(sopra);
@@ -194,6 +202,7 @@
     mondoSolco = {
       radice, stazioni, modellino: mini,
       vistaIniziale: () => ({ target: new THREE.Vector3(-10, 3, 0), theta: -0.5, phi: 1.2, r: 58 }),
+      tocchi: (v) => (s.fase === 'corre' ? [] : toccaSolco[v === 'mini' ? 'mini' : 'schermo']),
       frame(dt) {
         if (s.fase !== 'corre') return false;
         s.t = Math.min(TEMPO, s.t + dt * ACCELERA);
@@ -206,7 +215,8 @@
     return mondoSolco;
   }
   function prossima() { s.nave = (s.nave + 1) % VEL.length; s.fase = 'pronta'; s.t = 0; s.sec = TEMPO; s.sbagli = 0; s.nodi = 0; posaSolco(); }
-  function comandiSolco(id) {
+  function comandiSolco(idTocco) {
+    const id = idTocco === 't:lancia' ? 'lancia' : idTocco;
     if (id === 'lancia') { s.fase = 'corre'; s.t = 0; s.sec = TEMPO; s.esito = null; }
     if (id === 'n+') s.nodi = Math.min(30, s.nodi + 1);
     if (id === 'n-') s.nodi = Math.max(0, s.nodi - 1);
@@ -275,7 +285,7 @@
         dx: [
           zona('Punta una pedana e premi il grilletto per spostarti davanti ai righelli.', 'Punta il modellino, tieni premuto il grilletto e ruota la mano per girarlo.'),
           ...scala(),
-          { t: 'nota', testo: 'Globo e righelli non sono in scala: 1 primo sarebbe invisibile.' },
+          { t: 'nota', testo: 'Tocca il globo per dividere il meridiano. Globo e righelli non sono in scala: 1 primo sarebbe invisibile.' },
         ],
       },
       {
@@ -293,7 +303,7 @@
         dx: [
           zona('Sul cassero guarda i nodi passare nell\'anello rosso, che sono le dita del marinaio.', 'Punta il modellino, tieni premuto il grilletto e ruota la mano per girarlo.'),
           ...scala(),
-          { t: 'nota', testo: 'Conta i nodi che passano nell\'anello rosso. Tempo accelerato: i 30 s durano 10 s. Barchetta ingrandita.' },
+          { t: 'nota', testo: 'Tocca il rotolo a poppa per lanciare, poi conta i nodi nell\'anello rosso. Tempo accelerato: i 30 s durano 10 s. Barchetta ingrandita.' },
         ],
       },
       {

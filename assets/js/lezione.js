@@ -1,10 +1,13 @@
 /* Base comune delle lezioni: missioni, quiz, bandiera, tasto Salta. Regole in design.md */
 window.Lezione = (function () {
+  // Gli esercizi di ogni lezione, ripresi dai quiz di capitolo
+  const esercizi = {};
   /* cfg: { n, missioni: [{id,testo}], quiz: [{n,testo,scelte,giusta,perche}],
            calcoli: [{n,testo,campi:[[nome,valore,tolleranza,unità]],soluzione}] } */
   function crea(cfg) {
     const { n } = cfg;
     Libro.PRONTE.push(n);
+    esercizi[n] = [...(cfg.quiz || []), ...(cfg.calcoli || [])];
     const salvate = Libro.stato(n);
     const fatte = new Set(salvate.missioni || []);
     const risolti = new Set(salvate.esercizi || []);
@@ -131,5 +134,41 @@ window.Lezione = (function () {
     };
   }
 
-  return { crea };
+  /* Una simulazione in più, con meno codice: cfg.modello(k, tocca) costruisce una copia (k grande = modellino)
+     e chiama tocca(oggetto) per ogni cosa toccabile o trascinabile.
+     cfg: { modello, vista, scala, centro: [x, y], pedana: [x, z, nome], mare, trascina, frame, sopra, dopo } */
+  function simula(cfg) {
+    let m = null;
+    return () => {
+      if (m) return m;
+      const prese = { schermo: [], mini: [] };
+      const radice = new THREE.Group();
+      radice.add(cfg.modello(1, (o) => prese.schermo.push(o)));
+      if (cfg.mare !== false) radice.add(Scafo.mare());
+      const [px, pz, nome] = cfg.pedana || [45, 26, 'a dritta'];
+      const p = Tavola.pedana(px, pz, nome); p.visible = false;
+      const SC = cfg.scala || 0.012; const [cx, cy] = cfg.centro || [45, 0];
+      const mini = new THREE.Group();
+      mini.add(cfg.modello(cfg.k || 5, (o) => prese.mini.push(o)));
+      if (cfg.mare !== false) mini.add(Scafo.vasca());
+      mini.scale.setScalar(SC); mini.position.set(-cx * SC, -cy * SC, 0);
+      if (cfg.dopo) cfg.dopo();
+      m = {
+        radice, modellino: mini, stazioni: [{ pedana: p, pos: new THREE.Vector3(px, 0.25, pz), yaw: 0 }],
+        vistaIniziale: cfg.vista, tocchi: (v) => (v === 'mini' ? prese.mini : prese.schermo),
+        trascina: cfg.trascina, sopra: cfg.sopra, frame: cfg.frame || (() => false),
+      };
+      return m;
+    };
+  }
+  // Pezzi di pagina comuni alle simulazioni
+  function finestra(h, testoVR) {
+    const vr = Motore.presente(); const vera = vr && Motore.scalaVera();
+    return [
+      { t: 'zona', id: 'finestra', h, testo: !vr ? '' : vera ? 'Punta una pedana e premi il grilletto per spostarti.' : testoVR || 'Punta la sfera d\'oro, tieni premuto il grilletto e muovi la mano.' },
+      ...(vr ? [{ t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []),
+    ];
+  }
+
+  return { crea, simula, finestra, esercizi };
 })();

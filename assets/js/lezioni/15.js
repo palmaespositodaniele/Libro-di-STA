@@ -48,10 +48,10 @@
     return `${p(Math.floor(m / 60) % 24)}:${p(m % 60)}`;
   }
 
-  const copie = []; const SC = 0.26;
+  const copie = []; const SC = 0.26; const prese = { schermo: [], mini: [] }; const resto = { va: 0, vb: 0 };
   function nave(base, k, col) {
     const p = new THREE.Group(); const m = base.clone(); m.scale.setScalar(SC); m.position.set((-Scafo.L / 2) * SC, -5.6 * SC, 0); p.add(m);
-    const e = etichetta(col, 7 + k, col === 'A' ? '#8A6410' : '#B3362B'); e.position.y = 9 + k; p.add(e);
+    const e = etichetta(col, 7 + k, col === 'A' ? '#8C7020' : '#B3362B'); e.position.y = 9 + k; p.add(e);
     return p;
   }
   const scia = (z, k, col) => { const m = new THREE.Mesh(new THREE.BoxGeometry(1, 0.25 * k, 0.8 * k), new THREE.MeshBasicMaterial({ color: col })); m.position.set(0, 0.15, z); m.visible = false; return m; };
@@ -62,8 +62,10 @@
     for (let i = 0; i <= CARTA; i += 10) carta.add(segmento(new THREE.Vector3(i, 0.1, -1.5), new THREE.Vector3(i, 0.1, 1.5), 0.08 * k));
     g.add(compatta(carta));
     for (let i = 0; i <= CARTA; i += 20) { const e = etichetta(`${i}`, 5 + k); e.position.set(i, 1.5, 16); g.add(e); }
-    const nm = etichetta('NM', 5 + k, '#4A76A8'); nm.position.set(CARTA + 9, 1.5, 16); g.add(nm);
+    const nm = etichetta('NM', 5 + k, '#5B6B7C'); nm.position.set(CARTA + 9, 1.5, 16); g.add(nm);
     const a = nave(base, k, 'A'); a.position.z = -6; const b = nave(base, k, 'B'); b.position.z = 6;
+    // Sfera d'oro sulla nave: tirandola di lato cambia la velocità
+    [[a, 'va'], [b, 'vb']].forEach(([n, id]) => { const m = Tavola.maniglia(1.6 + k, id); m.position.set(0, 6 + k, 0); n.add(m); prese[k > 1 ? 'mini' : 'schermo'].push(m); });
     const sa = scia(-6, k, COL.ocra); const sb = scia(6, k, COL.rosso);
     g.add(a, b, sa, sb);
     copie.push({ a, b, sa, sb });
@@ -97,6 +99,14 @@
     mondo = {
       radice, stazioni, modellino: mini,
       vistaIniziale: () => ({ target: new THREE.Vector3(50, 0, 0), theta: 0, phi: 0.85, r: 170 }),
+      tocchi: (v) => (s.corre ? [] : prese[v === 'mini' ? 'mini' : 'schermo']),
+      trascina(id, dx) {
+        resto[id] += dx / 16;
+        const n = Math.trunc(resto[id]); if (!n) return;
+        resto[id] -= n;
+        for (let i = 0; i < Math.abs(n); i++) comandi(`${id}${n > 0 ? '+' : '-'}`);
+        Motore.ridisegna();
+      },
       frame(dt) {
         if (!s.corre) return false;
         s.t += dt / ORA;
@@ -189,7 +199,7 @@
               : 'Punta il modellino, tieni premuto il grilletto e ruota la mano per girarlo.',
           },
           ...(vr ? [{ t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []),
-          { t: 'nota', testo: 'La rotta è in scala, le navi no. Un\'ora dura 1,5 secondi. I valori iniziali sono quelli degli esercizi delle slide.' },
+          { t: 'nota', testo: 'Tira di lato la sfera d\'oro di una nave per cambiarne la velocità. La rotta è in scala, le navi no. Un\'ora dura 1,5 secondi.' },
         ],
       },
       {

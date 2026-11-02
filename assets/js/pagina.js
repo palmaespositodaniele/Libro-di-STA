@@ -4,8 +4,8 @@ window.Pagina = (function () {
   const W = 1200; const H = 1640; const MX = 90; const TOP = 64; const FONDO = 1470;
   const LARGA = W - MX * 2;
   const C = {
-    carta: '#F6F3E8', carta2: '#ECE7D6', griglia: '#DDE6EC', ink: '#12355B', ink2: '#4A76A8',
-    ocra: '#C8962B', ocraT: '#7D5A0C', rosso: '#B3362B', verde: '#2F7A55', acqua: '#2E7DB5',
+    carta: '#FBFAF4', carta2: '#EEF2F8', griglia: '#D8E0EC', ink: '#0B2545', ink2: '#5B6B7C',
+    ocra: '#C9A227', ocraT: '#8C7020', rosso: '#B3362B', verde: '#2F7A55', acqua: '#2E7DB5',
   };
   const TESTO = 44; // 2 cm sul libro in VR: mai meno di 34 per qualsiasi scritta
 

@@ -44,8 +44,8 @@
   function texRosa() {
     return tela(1024, 1024, (c) => {
       const O = 512; const R = 500;
-      c.fillStyle = '#F6F3E8'; c.beginPath(); c.arc(O, O, R, 0, Math.PI * 2); c.fill();
-      c.strokeStyle = '#12355B'; c.lineWidth = 6; c.stroke();
+      c.fillStyle = '#FBFAF4'; c.beginPath(); c.arc(O, O, R, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = '#0B2545'; c.lineWidth = 6; c.stroke();
       c.textAlign = 'center'; c.textBaseline = 'middle';
       for (let g = 0; g < 360; g += 5) {
         const a = ((g - 90) * Math.PI) / 180; const lung = g % 10 === 0 ? 38 : 20;
@@ -53,7 +53,7 @@
         c.moveTo(O + (R - 6) * Math.cos(a), O + (R - 6) * Math.sin(a));
         c.lineTo(O + (R - 6 - lung) * Math.cos(a), O + (R - 6 - lung) * Math.sin(a)); c.stroke();
       }
-      c.fillStyle = '#12355B'; c.font = '700 44px Atkinson, sans-serif';
+      c.fillStyle = '#0B2545'; c.font = '700 44px Atkinson, sans-serif';
       for (let g = 0; g < 360; g += 30) {
         const a = ((g - 90) * Math.PI) / 180;
         c.save(); c.translate(O + (R - 90) * Math.cos(a), O + (R - 90) * Math.sin(a)); c.rotate(a + Math.PI / 2);
@@ -96,8 +96,11 @@
     const nv = lancia(COL.ocra, 0.016, R * 0.86);
     rosa.add(nb, nm, nv);
     const lab = (t, col) => { const e = etichetta(t, 0.06, col); e.position.set(0, 0.03, -R * 0.96); return e; };
-    nb.add(lab('Nb', '#12355B')); nm.add(lab('Nm', '#4A76A8')); nv.add(lab('Nv', '#7D5A0C'));
+    nb.add(lab('Nb', '#0B2545')); nm.add(lab('Nm', '#5B6B7C')); nv.add(lab('Nv', '#8C7020'));
     g.add(rosa);
+    // Sfera d'oro: tirandola di lato la nave accosta e la rosa gira
+    const presa = Tavola.maniglia(0.035, 'pb'); presa.position.set(0, Y + 0.1, R + 0.14); g.add(presa);
+    prese.push(presa);
     // Linea di fede: fissa alla nave, verso prua
     g.add(segmento(new THREE.Vector3(0, Y + 0.01, -R - 0.1), new THREE.Vector3(0, Y + 0.01, -R + 0.08), 0.006, COL.rosso));
     return { g, rosa, nb, nm, nv };
@@ -123,7 +126,7 @@
     g.add(scatola(1.3, 2.3, 0, 1.1, -1.4, -0.7, 0.012));
     const ppi = new THREE.Mesh(new THREE.CircleGeometry(0.34, 48), new THREE.MeshBasicMaterial({
       map: tela(512, 512, (c) => {
-        c.fillStyle = '#12355B'; c.fillRect(0, 0, 512, 512);
+        c.fillStyle = '#0B2545'; c.fillRect(0, 0, 512, 512);
         c.strokeStyle = '#8FB2D6'; c.lineWidth = 3;
         [80, 160, 240].forEach((r) => { c.beginPath(); c.arc(256, 256, r, 0, Math.PI * 2); c.stroke(); });
         c.beginPath(); c.moveTo(256, 256); c.lineTo(256, 8); c.stroke();
@@ -173,7 +176,7 @@
     texLente.needsUpdate = true;
   }
 
-  const copie = [];
+  const copie = []; const prese = []; let restoPb = 0;
   const VISTE = {
     bussola: () => ({ target: new THREE.Vector3(0, 1.2, 0), theta: 0, phi: 0.5, r: 1.55 }),
     plancia: () => ({ target: new THREE.Vector3(0, 1, -0.5), theta: 0.5, phi: 1.2, r: 8.5 }),
@@ -210,6 +213,14 @@
     mondo = {
       radice, stazioni, modellino: mini, vistaIniziale: VISTE.bussola,
       lente: () => { disegnaLente(); return texLente; },
+      tocchi: () => prese,
+      trascina(id, dx) {
+        restoPb += dx / 10;
+        const n = Math.trunc(restoPb); if (!n) return;
+        restoPb -= n;
+        for (let i = 0; i < Math.abs(n); i++) comandi(n > 0 ? 'pb+' : 'pb-');
+        Motore.ridisegna();
+      },
       frame(dt) {
         pl.giro.rotation.y -= dt * 1.2;
         const fine = Math.abs(s.pb - visPb) > 0.02;
@@ -292,7 +303,7 @@
             ? { t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna alla bussola' : 'Vai in plancia', on: true }] }
             : { t: 'bottoni', h: 76, size: 34, lista: [{ id: 'v:bussola', testo: 'Bussola', on: s.vista === 'bussola' }, { id: 'v:plancia', testo: 'Plancia', on: s.vista === 'plancia' }] },
           { t: 'zona', id: 'lente', h: 300 },
-          { t: 'nota', testo: 'Tabella δ: slide 25. La plancia è schematica.' },
+          { t: 'nota', testo: 'Tira di lato la sfera d\'oro: accosta e guarda girare la rosa. Tabella δ: slide 25. Plancia schematica.' },
         ],
       },
       {

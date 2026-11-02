@@ -2,7 +2,7 @@
    nella vasca sono livelli senza valori, schematici. Dati solo dalle slide */
 (function () {
   const N = 10;
-  const { COL, tratto, etichetta, pedana, segmento } = Tavola;
+  const { COL, tratto, etichetta, pedana, segmento, maniglia } = Tavola;
   const { C } = Pagina;
   const { griglia } = Scafo;
 
@@ -182,13 +182,24 @@
     g.add(bolle);
     const e = [['prua →', 8, H + 1.6, 0], ['poppa', -9, H + 1.6, 0]].map(([t, x, y, z]) => { const l = etichetta(t, k > 1 ? 1.4 : 1); l.position.set(x, y, z); return l; });
     g.add(...e);
-    copie.push({ g, tipi, bolle });
+    // Sfere d'oro: una per i giri, sopra la vasca; una sull'asse per alzare l'elica; una sul pod
+    const dim = k > 1 ? 0.75 : 0.5; const dove = k > 1 ? 'mini' : 'schermo';
+    const giri = maniglia(dim, 'giri'); giri.position.set(-5, H + 0.8, 0); g.add(giri);
+    const imm = maniglia(dim, 'imm'); imm.position.set(8, 1.2, 0); tipi.elica.add(imm);
+    const azi = maniglia(dim, 'azi'); azi.position.set(5, H + 0.8, 0); g.add(azi);
+    prese[dove].push(giri, imm, azi);
+    copie.push({ g, tipi, bolle, imm, azi });
     return g;
   }
+  const prese = { schermo: [], mini: [] }; const resto = { giri: 0, imm: 0, azi: 0 };
 
   function mostra() {
-    copie.forEach((c) => Object.keys(c.tipi).forEach((id) => { c.tipi[id].visible = id === s.tipo; }));
+    copie.forEach((c) => {
+      Object.keys(c.tipi).forEach((id) => { c.tipi[id].visible = id === s.tipo; });
+      c.azi.visible = s.tipo === 'azipod';
+    });
   }
+  const presaAttiva = (o) => (o.userData.maniglia === 'imm' ? s.tipo === 'elica' : o.userData.maniglia === 'azi' ? s.tipo === 'azipod' : true);
 
   /* Pressione sul dorso: livelli, senza numeri */
   const LW = 1040; const LH = 300;
@@ -236,6 +247,18 @@
     mondo = {
       radice, stazioni, modellino: mini, vistaIniziale: VISTA,
       lente: () => { disegnaLente(); return texLente; },
+      tocchi: (v) => prese[v === 'mini' ? 'mini' : 'schermo'].filter(presaAttiva),
+      trascina(id, dx, dy) {
+        if (id === 'azi') { s.azi += dx * 0.008; return; }
+        resto[id] += id === 'giri' ? dx / 45 : -dy / 45;
+        const n = Math.trunc(resto[id]); if (!n) return;
+        resto[id] -= n;
+        for (let i = 0; i < Math.abs(n); i++) {
+          if (id === 'giri') comandi(n > 0 ? 'giri+' : 'giri-');
+          else comandi(n > 0 ? 'imm-' : 'imm+'); // tirando su l'elica si immerge meno
+        }
+        Motore.ridisegna();
+      },
       frame(dt) {
         const om = s.giri * 2.4 * s.verso;
         s.ang += dt * Math.abs(om);
@@ -350,6 +373,7 @@
           },
           ...(vr ? [{ t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []),
           { t: 'zona', id: 'lente', h: 300 },
+          { t: 'nota', testo: 'Sfere d\'oro: di lato i giri, in su l\'elica, di lato il pod.' },
           { t: 'p', size: 36, colore: cav > 0 ? C.rosso : C.verde, testo: s.tipo !== 'elica' ? 'La cavitazione qui si studia sull\'elica.' : cav > 0 ? '**Cavitazione**: bolle sul dorso, vibrazioni, meno spinta.' : '**Nessuna cavitazione.**' },
         ],
       },

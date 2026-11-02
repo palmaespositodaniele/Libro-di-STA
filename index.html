@@ -21,6 +21,7 @@
 <script src="assets/js/tavola3d.js"></script>
 <script src="assets/js/pagina.js"></script>
 <script src="assets/js/libro.js"></script>
+<script src="assets/js/stemma.js"></script>
 <script src="assets/js/ambiente.js"></script>
 <script src="assets/js/motore.js"></script>
 <script src="assets/js/glossario-dati.js"></script>
@@ -40,13 +41,20 @@
 <script src="assets/js/lezioni/12.js"></script>
 <script src="assets/js/lezioni/14.js"></script>
 <script src="assets/js/lezioni/15.js"></script>
+<script src="assets/js/lezioni/16.js"></script>
+<script src="assets/js/lezioni/20.js"></script>
+<script src="assets/js/lezioni/02.js"></script>
+<script src="assets/js/lezioni/03.js"></script>
+<script src="assets/js/lezioni/19.js"></script>
 <script src="assets/js/lezioni/13.js"></script>
+<script src="assets/js/quiz-capitolo.js"></script>
+<script src="assets/js/note-docente.js"></script>
 <script src="assets/js/sezioni.js"></script>
 <script>
   // Le pagine sono disegnate su tela: i caratteri devono essere pronti prima
   Promise.all([
     document.fonts.load('44px Atkinson'), document.fonts.load('700 44px Atkinson'),
-    document.fonts.load('700 68px Bitter'), document.fonts.load('42px Disegno'),
+    document.fonts.load('700 68px Bitter'), document.fonts.load('42px Disegno'), Stemma.pronto,
   ]).catch(() => {}).then(() => Motore.avvia());
 </script>
 </body>

@@ -5,10 +5,10 @@
 @font-face { font-family: "Disegno"; src: url("../fonts/architects-daughter-400.woff2") format("woff2"); font-display: block; }
 
 :root {
-  --carta: #F6F3E8;
-  --inchiostro: #12355B;
-  --inchiostro-2: #4A76A8;
-  --ocra: #C8962B;
+  --carta: #FBFAF4;
+  --inchiostro: #0B2545;
+  --inchiostro-2: #5B6B7C;
+  --ocra: #C9A227;
 }
 
 * { box-sizing: border-box; }

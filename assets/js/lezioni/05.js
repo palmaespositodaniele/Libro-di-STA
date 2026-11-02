@@ -62,10 +62,10 @@
   const copie = [];
   function copia(k) {
     const r = 0.045 * k;
-    const M = {}; const mat = (id) => (M[id] = new THREE.MeshBasicMaterial({ color: COL.inchiostro }));
+    const M = {}; const mat = (id) => (M[id] = new THREE.MeshBasicMaterial({ color: LEGNO }));
     const parti = {};
     const trave = (x0, x1, y, h, l) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, h, l), new THREE.MeshBasicMaterial({ color: COL.inchiostro }));
+      const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, h, l), new THREE.MeshBasicMaterial({ color: LEGNO }));
       m.position.set((x0 + x1) / 2, y, 0);
       return m;
     };
@@ -122,9 +122,12 @@
 
     const g = new THREE.Group();
     Object.keys(parti).forEach((id) => g.add(parti[id]));
+    Object.keys(PEZZI).forEach((id) => parti[id].children.forEach((m) => { m.userData.tocco = id; pezziToccabili[k > 1 ? 'mini' : 'schermo'].push(m); }));
     copie.push({ g, parti, M });
     return g;
   }
+  const LEGNO = 0x7A4E2D;
+  const pezziToccabili = { schermo: [], mini: [] };
 
   function visibili() {
     const f = s.fatti;
@@ -134,7 +137,7 @@
       ord.forEach((id) => { c.parti[id].visible = f >= 2; });
       c.parti.fasciame.visible = f >= 3 && !s.dettaglio;
       c.parti.calafataggio.visible = f >= 4 && !s.dettaglio;
-      Object.keys(c.M).forEach((id) => c.M[id].color.setHex(id === s.dettaglio ? COL.ocra : COL.inchiostro));
+      Object.keys(c.M).forEach((id) => c.M[id].color.setHex(id === s.dettaglio || id === s.sopra ? COL.ocra : LEGNO));
     });
   }
 
@@ -155,6 +158,14 @@
     visibili();
     mondo = {
       radice, stazioni, modellino: mini, vistaIniziale: VISTA,
+      // I pezzi si toccano solo a ossatura montata e col fasciame tolto: dentro non si vedrebbero
+      tocchi: (v) => (s.fatti >= 2 && (s.fatti < 3 || s.dettaglio) ? pezziToccabili[v === 'mini' ? 'mini' : 'schermo'] : []),
+      sopra(ids) {
+        const id = ids ? ids[0] : null;
+        if (id === s.sopra) return false;
+        s.sopra = id; visibili();
+        return true;
+      },
       frame(dt) {
         if (entra.t >= 1) return false;
         // Il pezzo appena montato scende al suo posto
@@ -172,7 +183,8 @@
     return mondo;
   }
 
-  function comandi(id) {
+  function comandi(idTocco) {
+    const id = idTocco.startsWith('t:') ? `d:${idTocco.slice(2).split(',')[0]}` : idTocco;
     if (id.startsWith('m:')) {
       const i = FASI.findIndex((f) => f.id === id.slice(2));
       s.dettaglio = null;
@@ -252,7 +264,7 @@
           ...(vr ? [{ t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []),
           { t: 'bottoni', h: 76, size: 32, lista: [{ id: 'smonta', testo: 'Smonta e ricomincia' }] },
           { t: 'riquadro', size: 36, testo: s.testo || 'Scegli il primo pezzo da montare.' },
-          { t: 'nota', testo: 'Disegno schematico' },
+          { t: 'nota', testo: 'Tocca un pezzo sull\'ossatura: si accende e ne leggi il nome. Disegno schematico.' },
         ],
       },
       {

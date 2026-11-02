@@ -1,8 +1,8 @@
 /* Disegno comune dei modelli 3D: tratto blu, scatole al tratto, etichette. Regole in design.md */
 (function () {
   const COL = {
-    carta: 0xF6F3E8, scafo: 0xFBF9F1, inchiostro: 0x12355B, medio: 0x4A76A8,
-    griglia: 0xC9D8E6, acqua: 0x2E7DB5, ocra: 0xC8962B, rosso: 0xB3362B,
+    carta: 0xFBFAF4, scafo: 0xFBF9F1, inchiostro: 0x0B2545, medio: 0x5B6B7C,
+    griglia: 0xD8E0EC, acqua: 0x2E7DB5, ocra: 0xC9A227, rosso: 0xB3362B,
   };
 
   const materiali = {};
@@ -55,7 +55,7 @@
     const tex = tela(w, px + 40, (ctx) => {
       ctx.font = `${px}px Disegno, cursive`;
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = colore || '#12355B';
+      ctx.fillStyle = colore || '#0B2545';
       ctx.fillText(testo, 20, (px + 40) / 2);
     });
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
@@ -92,6 +92,15 @@
     return geo;
   }
 
+  // Sfera d'oro: nei modelli vuol dire «prendimi e trascinami». Va messa in mondo.tocchi()
+  function maniglia(raggio, id) {
+    const m = new THREE.Mesh(cuoci(new THREE.SphereGeometry(raggio, 18, 12), COL.ocra), new THREE.MeshBasicMaterial({ vertexColors: true }));
+    m.userData.maniglia = id;
+    const anello = new THREE.Mesh(new THREE.TorusGeometry(raggio * 1.35, raggio * 0.12, 6, 24), inchiostro(COL.inchiostro));
+    anello.rotation.x = Math.PI / 2; m.add(anello);
+    return m;
+  }
+
   // Fonde tutti i tratti dello stesso colore in un solo oggetto: il visore disegna molto meno
   function compatta(gruppo) {
     gruppo.updateMatrixWorld(true);
@@ -121,5 +130,5 @@
     return gruppo;
   }
 
-  window.Tavola = { COL, tratto, segmento, scatola, tela, etichetta, pedana, compatta, cuoci };
+  window.Tavola = { COL, tratto, segmento, scatola, tela, etichetta, pedana, compatta, cuoci, maniglia };
 })();

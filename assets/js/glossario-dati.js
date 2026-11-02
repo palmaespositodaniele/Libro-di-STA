@@ -205,6 +205,8 @@ const GLOSSARIO = [
   ['solcometro', 'log', 14],
   // Lezione 15
   ['gradi, primi, secondi', 'degrees, minutes, seconds', 15],
+  // Lezione 16
+  ['geoide', 'geoid', 16],
   // Lezione 17
   ['inclinazione magnetica', 'dip', 17],
   ['declinazione magnetica', 'variation', 17],

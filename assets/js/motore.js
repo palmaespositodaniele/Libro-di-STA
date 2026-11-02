@@ -33,15 +33,15 @@ window.Motore = (function () {
   stanza.visible = false;
   scene.add(stanza);
   const sostegno = Ambiente.leggio();
-  sostegno.tavola.visible = false; sostegno.colonna.visible = false;
-  rig.add(sostegno.colonna);
+  [sostegno.tavola, sostegno.zeppe, sostegno.banco, sostegno.colonna, sostegno.fascio].forEach((o) => { o.visible = false; });
+  rig.add(sostegno.banco, sostegno.colonna, sostegno.fascio);
 
   /* Libro ---------------------------------------------------------------- */
   const libro = new THREE.Group();
   const interno = new THREE.Group(); // si sposta quando il libro è chiuso
   libro.add(interno);
   libro.rotation.x = INCLINA;
-  libro.add(sostegno.tavola);
+  libro.add(sostegno.tavola, sostegno.zeppe);
   scene.add(libro);
 
   function tavolozzaPagina() {
@@ -68,13 +68,13 @@ window.Motore = (function () {
     c.fillStyle = g; c.fillRect(0, 0, 64, 64);
   });
   const pelle = Tavola.tela(512, 700, (c) => {
-    c.fillStyle = '#17395F'; c.fillRect(0, 0, 512, 700);
+    c.fillStyle = '#0B2545'; c.fillRect(0, 0, 512, 700);
     for (let i = 0; i < 6000; i++) { c.fillStyle = i % 2 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.07)'; c.fillRect((i * 7919) % 512, (i * 104729) % 700, 2, 2); }
-    c.strokeStyle = '#D0AC58'; c.lineWidth = 4; c.strokeRect(7, 7, 498, 686);
+    c.strokeStyle = '#C9A227'; c.lineWidth = 4; c.strokeRect(7, 7, 498, 686);
   });
   const matPagine = new THREE.MeshBasicMaterial({ map: fianchi });
   const matTaglio = new THREE.MeshBasicMaterial({ color: 0xE9DFC6 });
-  const matDorso = new THREE.MeshBasicMaterial({ color: 0x102C4A });
+  const matDorso = new THREE.MeshBasicMaterial({ color: 0x071A33 });
   const matCoperta = [matDorso, matDorso, matDorso, matDorso, new THREE.MeshBasicMaterial({ map: pelle }), matDorso];
   const pagine = (x) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(PW, PH, SP), [matPagine, matPagine, matPagine, matPagine, matTaglio, matTaglio]);
@@ -110,6 +110,20 @@ window.Motore = (function () {
   nastro.position.set(0.012, -PH / 2 - 0.04, Z - 0.003); nastro.rotation.z = -0.1;
   interno.add(dorso, capitello(1), capitello(-1), nastro, latoSx, latoDx);
 
+  // Linguette dei capitoli sul taglio destro: portano alla prima lezione pronta del capitolo
+  const linguette = Libro.CAPITOLI.map((cap, i) => {
+    const tex = Tavola.tela(96, 192, (c) => {
+      c.fillStyle = i % 2 ? '#C9A227' : '#0B2545'; c.fillRect(0, 0, 96, 192);
+      c.fillStyle = i % 2 ? '#0B2545' : '#E3C878'; c.font = '700 84px Bitter, Georgia, serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(String(cap.n), 50, 98);
+    });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.09), new THREE.MeshBasicMaterial({ map: tex }));
+    m.position.set(PW + 0.035, PH / 2 - 0.09 - i * 0.105, Z - 0.012);
+    m.userData.capitolo = cap;
+    latoDx.add(m);
+    return m;
+  });
+
   // Foglio che gira: due facce sulla stessa forma curva
   const SEG = 16;
   const geoFronte = new THREE.PlaneGeometry(PW, PH, SEG, 1); geoFronte.translate(PW / 2, 0, 0);
@@ -138,11 +152,11 @@ window.Motore = (function () {
   const perno = new THREE.Group();
   perno.position.set(PW / 2, PH / 2, Z + 0.004);
   const alettaTex = Tavola.tela(600, 820, (c) => {
-    c.fillStyle = '#12355B'; c.fillRect(0, 0, 600, 820);
-    c.fillStyle = '#F6F3E8'; c.textAlign = 'center';
+    c.fillStyle = '#0B2545'; c.fillRect(0, 0, 600, 820);
+    c.fillStyle = '#FBFAF4'; c.textAlign = 'center';
     c.font = '700 54px Bitter, Georgia, serif'; c.fillText('Solleva l\'aletta', 300, 400);
     c.font = '34px Atkinson, sans-serif'; c.fillText('Dentro c\'è la risposta', 300, 460);
-    c.strokeStyle = '#F6F3E8'; c.lineWidth = 3; c.strokeRect(30, 30, 540, 760);
+    c.strokeStyle = '#FBFAF4'; c.lineWidth = 3; c.strokeRect(30, 30, 540, 760);
   });
   const aletta = new THREE.Mesh(new THREE.PlaneGeometry(PW * 0.98, PH * 0.98), new THREE.MeshBasicMaterial({ map: alettaTex, side: THREE.DoubleSide, transparent: true }));
   aletta.position.y = -PH * 0.49;
@@ -285,6 +299,13 @@ window.Motore = (function () {
       const a = rc.intersectObject(aletta)[0];
       if (a) return { id: 'aletta', punto: a.point, distanza: a.distance, aletta: true };
     }
+    if (spread && !spread.chiuso) {
+      const t = rc.intersectObjects(linguette, false)[0];
+      if (t) {
+        const prima = t.object.userData.capitolo.lezioni.find((n) => Libro.PRONTE.includes(n));
+        return { id: prima ? `sez:${prima}:0` : 'sez:indice:0', punto: t.point, distanza: t.distance };
+      }
+    }
     const h = rc.intersectObjects(latoSx.visible ? [paginaSx, paginaDx] : [paginaDx], false)[0];
     if (!h) return null;
     const f = att[h.object.userData.lato];
@@ -303,6 +324,37 @@ window.Motore = (function () {
 
   let tenuto = null; let ripetiT = null; let trascina = null;
 
+  /* Modelli che si toccano. mondo.tocchi(vista) dà gli oggetti: vista è 'schermo', 'mini' o 'vera'.
+     userData.tocco: un clic manda 't:id1,id2' all'azione della pagina, con tutti gli oggetti sotto il puntatore.
+     userData.maniglia: si trascina, mondo.trascina(id, dx, dy); al rilascio arriva 'lascia:id' */
+  const rcM = new THREE.Raycaster(); const ndcF = new THREE.Vector2();
+  let presaM = null;
+  function puntaMondo(raggio, vista) {
+    if (!mondo || !mondo.tocchi) return null;
+    const hit = raggio.intersectObjects(mondo.tocchi(vista), false);
+    if (!hit.length) return null;
+    const m = hit.find((x) => x.object.userData.maniglia);
+    if (m) return { maniglia: m.object.userData.maniglia, punto: m.point, distanza: m.distance };
+    // Conta solo ciò che sta davanti: il raggio attraversa il modello e uscirebbe dal lato opposto
+    const ids = [...new Set(hit.filter((x) => x.distance < hit[0].distance * 1.02).map((x) => x.object.userData.tocco).filter(Boolean))];
+    return ids.length ? { tocchi: ids, punto: hit[0].point, distanza: hit[0].distance } : null;
+  }
+  function suFinestra(h) {
+    const z = h.zona;
+    ndcF.set(((h.x - z.x) / z.w) * 2 - 1, -((h.y - z.y) / z.h) * 2 + 1);
+    mondoCam.updateMatrixWorld();
+    rcM.setFromCamera(ndcF, mondoCam);
+    return puntaMondo(rcM, 'schermo');
+  }
+  function muoviPresa(dx, dy) {
+    if (mondo && mondo.trascina) mondo.trascina(presaM.id, dx, dy);
+    mondoSporco = true;
+  }
+  function lasciaPresa() {
+    const id = presaM.id; presaM = null;
+    agisci(`lascia:${id}`);
+  }
+
   function agisci(id) {
     if (id === 'avanti') { if (sez.spreads()[idx + 1]) vai(sez, idx + 1, true); return; }
     if (id === 'indietro') { if (idx > 0) vai(sez, idx - 1, false); return; }
@@ -316,7 +368,12 @@ window.Motore = (function () {
 
   function premi(h) {
     if (giro || !h || !h.id) return;
-    if (h.id === 'finestra') { trascina = { x: h.x, y: h.y }; return; }
+    if (h.id === 'finestra') {
+      const t = suFinestra(h);
+      if (t && t.maniglia) { presaM = { id: t.maniglia, x: h.x, y: h.y }; return; }
+      trascina = { x: h.x, y: h.y, x0: h.x, y0: h.y, tocchi: t && t.tocchi };
+      return;
+    }
     if (h.zona && h.zona.area) return;
     agisci(h.id);
     if (h.zona && h.zona.ripeti) {
@@ -324,7 +381,13 @@ window.Motore = (function () {
       ripetiT = setTimeout(function ancora() { if (tenuto) { agisci(tenuto); ripetiT = setTimeout(ancora, 110); } }, 420);
     }
   }
-  function rilascia() { tenuto = null; clearTimeout(ripetiT); trascina = null; }
+  function rilascia() {
+    tenuto = null; clearTimeout(ripetiT);
+    if (presaM) lasciaPresa();
+    const t = trascina; trascina = null;
+    // Se il puntatore non si è mosso è un clic sul modello, non una rotazione
+    if (t && t.tocchi && Math.hypot(t.x - t.x0, t.y - t.y0) < 12) agisci(`t:${t.tocchi.join(',')}`);
+  }
 
   // Mouse e tocco
   const el = renderer.domElement;
@@ -338,13 +401,18 @@ window.Motore = (function () {
   el.addEventListener('pointermove', (e) => {
     raggioSchermo(e);
     const h = colpo();
-    if (trascina && h && h.x !== undefined) {
+    if (presaM && h && h.x !== undefined) {
+      muoviPresa(h.x - presaM.x, h.y - presaM.y);
+      presaM.x = h.x; presaM.y = h.y;
+    } else if (trascina && h && h.x !== undefined) {
       orbita.meta.theta -= (h.x - trascina.x) * 0.006;
       orbita.meta.phi = Math.min(1.54, Math.max(0.25, orbita.meta.phi - (h.y - trascina.y) * 0.005));
-      trascina = { x: h.x, y: h.y }; mondoSporco = true;
+      trascina.x = h.x; trascina.y = h.y; mondoSporco = true;
     }
     illumina(h);
-    el.style.cursor = h && h.id ? (h.id === 'finestra' ? 'grab' : 'pointer') : 'default';
+    const sulModello = h && h.id === 'finestra' && !trascina && !presaM ? suFinestra(h) : null;
+    if (mondo && mondo.sopra && !presaM) { if (mondo.sopra(sulModello && sulModello.tocchi)) mondoSporco = true; }
+    el.style.cursor = presaM ? 'grabbing' : sulModello ? 'pointer' : h && h.id ? (h.id === 'finestra' ? 'grab' : 'pointer') : 'default';
   });
   el.addEventListener('pointerup', rilascia);
   el.addEventListener('pointercancel', rilascia);
@@ -369,7 +437,7 @@ window.Motore = (function () {
     const stretto = camera.aspect < 0.9;
     document.body.classList.toggle('stretto', stretto);
     const tan = Math.tan((camera.fov * Math.PI) / 360);
-    const largo = stretto ? PW + 0.03 : 2 * PW + 0.13;
+    const largo = stretto ? PW + 0.03 : 2 * PW + 0.2;
     // Intorno si vede il tavolo; in alto resta una striscia libera per il pulsante VR
     const d = Math.max((PH + 0.2) / (2 * tan), largo / (2 * tan * camera.aspect));
     const x = stretto ? (focus || 1) * (PW / 2) : 0;
@@ -402,11 +470,12 @@ window.Motore = (function () {
   const anello = new THREE.Mesh(new THREE.RingGeometry(0.72, 0.74, 64), new THREE.MeshBasicMaterial({ color: COL.ocra, side: THREE.DoubleSide }));
   anello.rotation.x = -Math.PI / 2; anello.visible = false;
   rig.add(anello);
-  const POS_MODELLO = { z: -1.15, sopra: 0.46 };
+  const POS_MODELLO = { z: -1.02, sopra: 0.5 };
+  const POGGIO = 0.29; // dal centro del libro al piano del tavolo
   let salita = 0; let tieni = null;
   const qMano = new THREE.Quaternion(); const qGiro = new THREE.Quaternion();
-  // La pagina sta perpendicolare allo sguardo: niente testo in scorcio
-  const QL = (y) => new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.38, y, 0, 'YXZ'));
+  // Il libro poggia in basso, inclinato verso chi legge: il testo non resta in scorcio
+  const QL = (y) => new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.95, y, 0, 'YXZ'));
   let pedane = []; let daCentrare = false; let salto = null;
 
   let mondoInScena = null;
@@ -436,9 +505,10 @@ window.Motore = (function () {
       rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0);
     }
     stanza.visible = !vera;
-    sostegno.tavola.visible = !vera; sostegno.colonna.visible = !vera;
+    sostegno.zeppe.visible = !vera; sostegno.banco.visible = !vera; sostegno.colonna.visible = vera;
+    sostegno.fascio.visible = modo === 'modello';
     // Accanto alla nave il libro si sposta di lato per non coprire la vista
-    leggio.pos.set(vera ? -0.66 : 0, leggio.altezza, vera ? -0.5 : -0.78);
+    leggio.pos.set(vera ? -0.66 : 0, leggio.altezza, vera ? -0.5 : -0.62);
     leggio.rot.copy(QL(vera ? 0.75 : 0));
   }
   const modoVoluto = () => (!spread.mondo || !mondo ? 'libro' : vrScala);
@@ -455,6 +525,13 @@ window.Motore = (function () {
 
   const controller = [];
   const rotazione = new THREE.Matrix4();
+  let clic = null; let turno = 0;
+  // Direzione del controller in angoli: col mouse si trascina in pixel, qui in gradi del polso
+  function angoli(c) {
+    raggioController(c);
+    const d = rc.ray.direction;
+    return { a: Math.atan2(d.x, -d.z), b: Math.asin(d.y) };
+  }
   function raggioController(c) {
     rotazione.identity().extractRotation(c.matrixWorld);
     rc.ray.origin.setFromMatrixPosition(c.matrixWorld);
@@ -464,9 +541,13 @@ window.Motore = (function () {
   function colpoVR(c) {
     raggioController(c);
     const h = colpo();
-    // Il controller sta sotto il libro: il raggio verso il modellino passa dalla pagina.
+    // Il raggio verso il modellino può passare dalla pagina.
     // Vincono solo i bottoni; la carta e le zone disegnate lasciano passare il raggio
     const bottone = h && h.id && !(h.zona && h.zona.area);
+    if (leggio.modo !== 'libro' && !bottone) {
+      const t = puntaMondo(rc, leggio.modo === 'modello' ? 'mini' : 'vera');
+      if (t) return t;
+    }
     if (leggio.modo === 'modello' && !bottone) {
       const m = rc.intersectObject(presa, false)[0];
       if (m) return { presa: true, punto: m.point, distanza: m.distance };
@@ -492,10 +573,20 @@ window.Motore = (function () {
       const h = colpoVR(c);
       if (!h) return;
       if (h.stazione) salto = { tempo: 0, fatto: false, azione: () => posa(h.stazione) };
-      else if (h.presa) tieni = { c, inizio: c.getWorldQuaternion(new THREE.Quaternion()).invert(), base: modellino.quaternion.clone() };
+      else if (h.maniglia) { presaM = { id: h.maniglia, c, ...angoli(c) }; } else if (h.tocchi) {
+        // Sul modellino lo stesso grilletto gira: è un clic solo se viene lasciato subito
+        if (leggio.modo === 'vera') agisci(`t:${h.tocchi.join(',')}`);
+        else { clic = { c, t: performance.now(), tocchi: h.tocchi }; tieni = { c, inizio: c.getWorldQuaternion(new THREE.Quaternion()).invert(), base: modellino.quaternion.clone() }; }
+      } else if (h.presa) tieni = { c, inizio: c.getWorldQuaternion(new THREE.Quaternion()).invert(), base: modellino.quaternion.clone() };
       else premi(h);
     });
-    c.addEventListener('selectend', () => { rilascia(); if (tieni && tieni.c === c) tieni = null; });
+    c.addEventListener('selectend', () => {
+      const pronto = clic && clic.c === c && performance.now() - clic.t < 350 ? clic.tocchi : null;
+      if (clic && clic.c === c) clic = null;
+      rilascia();
+      if (tieni && tieni.c === c) tieni = null;
+      if (pronto) agisci(`t:${pronto.join(',')}`);
+    });
     rig.add(c);
     controller.push({ c, linea });
   });
@@ -529,7 +620,7 @@ window.Motore = (function () {
     libro.position.copy(leggio.pos); libro.quaternion.copy(leggio.rot);
     camera.position.set(0, 0, 0); camera.rotation.set(0, 0, 0);
     stanza.visible = true; daCentrare = true;
-    sostegno.tavola.visible = true; sostegno.colonna.visible = true;
+    sostegno.tavola.visible = true; sostegno.zeppe.visible = true; sostegno.banco.visible = true;
     ombre.forEach((o) => { o.visible = false; });
     finestra.visible = false;
     ridisegna();
@@ -543,7 +634,7 @@ window.Motore = (function () {
     rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0);
     libro.position.set(0, 0, 0); libro.rotation.set(INCLINA, 0, 0);
     stanza.visible = false; mirino.visible = false; leggio.modo = 'libro';
-    sostegno.tavola.visible = false; sostegno.colonna.visible = false;
+    [sostegno.tavola, sostegno.zeppe, sostegno.banco, sostegno.colonna, sostegno.fascio].forEach((o) => { o.visible = false; });
     ombre.forEach((o) => { o.visible = true; });
     modellino.clear(); modellino.visible = false; anello.visible = false; tieni = null;
     ridimensiona();
@@ -588,22 +679,31 @@ window.Motore = (function () {
       if (daCentrare && camera.position.y > 0.3) {
         // Il leggio si adatta a chi è in piedi e a chi è seduto
         daCentrare = false;
-        leggio.altezza = Math.max(0.6, camera.position.y - 0.3);
+        leggio.altezza = Math.max(0.55, camera.position.y - 0.62);
         leggio.pos.y = leggio.altezza;
       }
       libro.position.lerp(leggio.pos, 1 - Math.exp(-dt * 3));
       libro.quaternion.slerp(leggio.rot, 1 - Math.exp(-dt * 3));
       sostegno.colonna.position.set(libro.position.x, 0, libro.position.z - 0.12);
       sostegno.colonna.scale.y = Math.max(0.1, libro.position.y - 0.28);
-      // Il modellino si alza piano dal libro; poi si gira tenendo il grilletto e ruotando la mano
+      sostegno.banco.position.set(0, 0, leggio.pos.z - 0.2);
+      sostegno.banco.scale.y = Math.max(0.2, leggio.altezza - POGGIO);
+      // Il modellino si alza piano dalla pagina; poi si gira tenendo il grilletto e ruotando la mano
       const yMod = leggio.altezza + POS_MODELLO.sopra;
       if (modellino.visible) {
         salita = Math.min(1, salita + dt / 1.4);
         const e = salita * salita * (3 - 2 * salita);
         modellino.scale.setScalar(0.15 + 0.85 * e);
-        modellino.position.set(0, leggio.altezza + (POS_MODELLO.sopra) * e, POS_MODELLO.z * (0.68 + 0.32 * e));
+        modellino.position.set(0, leggio.altezza + 0.04 + (POS_MODELLO.sopra - 0.04) * e, -0.7 + (POS_MODELLO.z + 0.7) * e);
         presa.position.set(0, yMod, POS_MODELLO.z);
         anello.position.set(0, yMod - 0.12, POS_MODELLO.z);
+        sostegno.fascio.position.set(0, leggio.altezza + 0.02 + (POS_MODELLO.sopra / 2) * e, -0.7 + (POS_MODELLO.z + 0.7) * e * 0.6);
+        sostegno.fascio.scale.set(0.2 + 0.8 * e, Math.max(0.02, POS_MODELLO.sopra * e), 0.2 + 0.8 * e);
+      }
+      if (presaM && presaM.c) {
+        const q = angoli(presaM.c);
+        muoviPresa((q.a - presaM.a) * 1400, -(q.b - presaM.b) * 1400);
+        presaM.a = q.a; presaM.b = q.b;
       }
       if (tieni) {
         tieni.c.getWorldQuaternion(qMano);
@@ -611,15 +711,21 @@ window.Motore = (function () {
         qGiro.multiply(qGiro.clone()); // il doppio del gesto: basta poco polso
         modellino.quaternion.multiplyQuaternions(qGiro, tieni.base);
       }
-      let mira = null; let sopra = null; let sullaNave = !!tieni;
-      controller.forEach(({ c, linea }) => {
+      let mira = null; let sopra = null; let sullaNave = !!tieni; let suTocchi = null;
+      turno += 1;
+      controller.forEach((v) => {
+        const { c, linea } = v;
         if (!c.visible) return;
-        const h = colpoVR(c);
+        // I modelli toccabili hanno molti triangoli: il raggio si ricalcola un fotogramma su tre
+        if (turno % 3 === 0 || v.ultimo === undefined) v.ultimo = colpoVR(c);
+        const h = v.ultimo;
         linea.scale.z = h ? h.distanza : 3;
         if (h && h.stazione) mira = h.punto;
         if (h && h.id) sopra = h;
-        if (h && h.presa) sullaNave = true;
+        if (h && (h.presa || h.tocchi || h.maniglia)) sullaNave = true;
+        if (h && h.tocchi) suTocchi = h.tocchi;
       });
+      if (turno % 3 === 0 && mondo && mondo.sopra && !presaM) mondo.sopra(suTocchi);
       illumina(sopra);
       anello.visible = sullaNave && modellino.visible;
       mirino.visible = !!mira;
@@ -669,6 +775,6 @@ window.Motore = (function () {
     presente: () => renderer.xr.isPresenting,
     scalaVera: () => vrScala === 'vera',
     sez: () => sez, indice: () => idx,
-    prove: { renderer, scene, att: () => att, agisci, camera, libro, controller, rig, giro: () => !!giro, leggio },
+    prove: { renderer, scene, att: () => att, agisci, camera, libro, controller, rig, giro: () => !!giro, leggio, sostegno, modellino, stanza, tavolo, mondo: () => mondo },
   };
 })();

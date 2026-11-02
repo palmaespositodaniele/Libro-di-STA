@@ -1,7 +1,7 @@
 /* Lezione 13: il bordo libero. Dati dalle slide 18, 19, 20, 26-29, 35-38 */
 (function () {
   const N = 13;
-  const { COL, tratto, segmento, scatola, tela, etichetta, pedana } = Tavola;
+  const { COL, tratto, segmento, scatola, tela, etichetta, pedana, maniglia } = Tavola;
   const { C } = Pagina;
   Libro.PRONTE.push(N);
 
@@ -257,6 +257,8 @@
     marche(nave, 1);
     marche(nave, -1);
     radice.add(nave);
+    // Sfera d'oro sul boccaporto: premendo in giù si imbarca carico
+    const presa = maniglia(2.2, 'carico'); presa.position.set(45, 12, 0); nave.add(presa);
 
     radice.add(Scafo.mare());
 
@@ -272,7 +274,7 @@
 
     const prua = etichetta('prua', 5); prua.position.set(101, 8, 0); radice.add(prua);
     const poppa = etichetta('poppa', 5); poppa.position.set(-6, 11, 0); radice.add(poppa);
-    const nomePettine = etichetta('pettine', 5, '#7D5A0C'); nomePettine.position.set(45, 13, 14); radice.add(nomePettine);
+    const nomePettine = etichetta('pettine', 5, '#8C7020'); nomePettine.position.set(45, 13, 14); radice.add(nomePettine);
     const richiamo = segmento(new THREE.Vector3(45, 11, 14), new THREE.Vector3(45.2, 0.8, 7.6), 0.06, COL.ocra);
     radice.add(richiamo);
 
@@ -293,6 +295,7 @@
     const mini = new THREE.Group();
     const naveMini = scafo(K);
     mini.add(naveMini);
+    const presaMini = maniglia(4, 'carico'); presaMini.position.set(45, 13, 0); naveMini.add(presaMini);
     const vasca = new THREE.Mesh(new THREE.CircleGeometry(58, 64), new THREE.MeshBasicMaterial({ color: COL.acqua, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide }));
     vasca.rotation.x = -Math.PI / 2; vasca.position.set(45, 0, 0);
     mini.add(vasca);
@@ -309,7 +312,7 @@
     mini.add(puntoMarche);
     const nomiMini = [['prua', 100, 9, 0], ['poppa', -8, 14, 0], ['pettine', 45, 11, 16]];
     nomiMini.forEach(([testo, x, y, z]) => {
-      const e = etichetta(testo, 7, testo === 'pettine' ? '#7D5A0C' : '#12355B');
+      const e = etichetta(testo, 7, testo === 'pettine' ? '#8C7020' : '#0B2545');
       e.position.set(x, y, z);
       mini.add(e);
     });
@@ -319,7 +322,7 @@
     function aggiornaColori() {
       const r = calcola(); const corte = s.lunghezza <= 100;
       barreWna.forEach((o) => { o.visible = corte; });
-      Object.keys(coloriMarca).forEach((k) => coloriMarca[k].color.setHex(k === r.evidenziata ? COL.ocra : COL.inchiostro));
+      Object.keys(coloriMarca).forEach((k) => coloriMarca[k].color.setHex(k === r.evidenziata ? COL.ocra : COL.scafo));
     }
 
     mondo = {
@@ -327,6 +330,15 @@
       vistaIniziale: VISTA_NAVE,
       lente: () => { disegnaLente(visibile); return texLente; },
       primaFinestra: (r) => vicino(r < 30),
+      tocchi: (v) => [v === 'mini' ? presaMini : presa],
+      trascina(id, dx, dy) {
+        s.resto = (s.resto || 0) + dy / 7;
+        const n = Math.trunc(s.resto); if (!n) return;
+        s.resto -= n;
+        const prima = s.carico;
+        s.carico = Math.max(-300, Math.min(300, s.carico + n * 25));
+        if (s.carico !== prima) { controllaMissioni(calcola()); Motore.ridisegna(); }
+      },
       frame(dt) {
         const vero = calcola().livello;
         let sporco = false;
@@ -466,6 +478,7 @@
           { t: 'zona', id: 'lente', h: 440 },
           { t: 'p', size: 36, testo: `**${verdetto}**${nota}`, colore: r.margine < 0 ? C.rosso : C.verde },
           { t: 'p', size: 34, testo: `Bordo libero ${mm(r.bordo)} · Immersione ${mm(r.immersione)} · Marca ${r.sigla}` },
+          { t: 'nota', testo: 'Tira la sfera d\'oro verso il basso per caricare.' },
         ],
         azione: comandoProva,
       },

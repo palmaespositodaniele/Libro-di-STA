@@ -84,9 +84,18 @@
       nave.add(m);
       return { m, geo, ultimo: -1, i };
     });
+    // Ogni locale si tocca direttamente: bersagli invisibili, uno per compartimento
+    const nascosto = new THREE.MeshBasicMaterial({ visible: false });
+    LOCALI.forEach((l) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry((l.u[1] - l.u[0]) * L, 9, Scafo.B), nascosto);
+      m.position.set(((l.u[0] + l.u[1]) / 2) * L, 4.5, 0);
+      m.userData.tocco = `l:${l.id}`;
+      nave.add(m); prese[k > 1 ? 'mini' : 'schermo'].push(m);
+    });
     copie.push({ nave, perno, acque, matParatia });
     return perno;
   }
+  const prese = { schermo: [], mini: [] };
 
   const VISTA = () => ({ target: new THREE.Vector3(45, 1, 0), theta: 0.12, phi: 1.38, r: 118 });
   let mondo = null;
@@ -105,6 +114,7 @@
     mini.add(copia(6), Scafo.vasca()); mini.scale.setScalar(SC); mini.position.set(-45 * SC, 0.03, 0);
     mondo = {
       radice, stazioni, modellino: mini, vistaIniziale: VISTA,
+      tocchi: (v) => prese[v === 'mini' ? 'mini' : 'schermo'],
       frame(dt) {
         let mosso = false;
         LOCALI.forEach((l, i) => {
@@ -138,7 +148,8 @@
     return mondo;
   }
 
-  function comandi(id) {
+  function comandi(idTocco) {
+    const id = idTocco.startsWith('t:') ? idTocco.slice(2).split(',')[0] : idTocco;
     if (id.startsWith('l:')) {
       const i = LOCALI.findIndex((l) => l.id === id.slice(2));
       s.falla[i] = true;
@@ -204,7 +215,7 @@
               : 'Punta il modellino, tieni premuto il grilletto e ruota la mano per girarlo.',
           },
           ...(vr ? [{ t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []),
-          { t: 'nota', testo: 'Quanto affonda la nave è schematico: le slide non danno un numero di compartimenti.' },
+          { t: 'nota', testo: 'Tocca un locale sulla nave per aprire la falla. Quanto affonda è schematico: le slide non danno un numero di compartimenti.' },
         ],
       },
       {

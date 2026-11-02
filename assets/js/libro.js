@@ -30,7 +30,7 @@
         c.fillStyle = '#fff'; c.fillRect(x, y, w / 2, h);
         c.fillStyle = '#1B4FA0'; c.fillRect(x + w / 2, y, w / 2, h);
         c.restore();
-        c.strokeStyle = '#12355B'; c.lineWidth = 3; c.beginPath();
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.beginPath();
         c.moveTo(x, y); c.lineTo(x + w, y); c.lineTo(x + w * 0.76, y + h / 2); c.lineTo(x + w, y + h); c.lineTo(x, y + h); c.closePath(); c.stroke();
       },
     },
@@ -40,7 +40,7 @@
       disegna(c, x, y, w, h) {
         c.fillStyle = '#F2C230'; c.fillRect(x, y, w, h);
         c.fillStyle = '#1B4FA0'; c.fillRect(x, y + h / 4, w, h / 2);
-        c.strokeStyle = '#12355B'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
       },
     },
     9: {
@@ -49,7 +49,7 @@
       disegna(c, x, y, w, h) {
         c.fillStyle = '#F2C230'; c.fillRect(x, y, w, h);
         c.fillStyle = '#111'; c.beginPath(); c.arc(x + w / 2, y + h / 2, h * 0.32, 0, Math.PI * 2); c.fill();
-        c.strokeStyle = '#12355B'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
       },
     },
     10: {
@@ -58,7 +58,7 @@
       disegna(c, x, y, w, h) {
         c.fillStyle = '#1B4FA0'; c.fillRect(x, y, w, h);
         c.fillStyle = '#fff'; c.fillRect(x, y + h / 3, w, h / 3);
-        c.strokeStyle = '#12355B'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
       },
     },
     11: {
@@ -67,7 +67,7 @@
       disegna(c, x, y, w, h) {
         c.fillStyle = '#F2C230'; c.fillRect(x, y, w / 2, h);
         c.fillStyle = '#1B4FA0'; c.fillRect(x + w / 2, y, w / 2, h);
-        c.strokeStyle = '#12355B'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
       },
     },
     17: {
@@ -75,7 +75,7 @@
       significato: 'La mia nave è indenne e chiedo la libera pratica.',
       disegna(c, x, y, w, h) {
         c.fillStyle = '#F2C230'; c.fillRect(x, y, w, h);
-        c.strokeStyle = '#12355B'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
       },
     },
     18: {
@@ -84,7 +84,7 @@
       disegna(c, x, y, w, h) {
         c.fillStyle = '#C8202A'; c.fillRect(x, y, w, h);
         c.fillStyle = '#F2C230'; c.fillRect(x, y + h * 0.42, w, h * 0.16); c.fillRect(x + w / 2 - h * 0.08, y, h * 0.16, h);
-        c.strokeStyle = '#12355B'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
       },
     },
     5: {
@@ -93,7 +93,7 @@
       disegna(c, x, y, w, h) {
         c.fillStyle = '#1B4FA0'; c.fillRect(x, y, w, h / 2);
         c.fillStyle = '#C8202A'; c.fillRect(x, y + h / 2, w, h / 2);
-        c.strokeStyle = '#12355B'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
       },
     },
     6: {
@@ -102,7 +102,7 @@
       disegna(c, x, y, w, h) {
         c.fillStyle = '#fff'; c.fillRect(x, y, w, h);
         c.fillStyle = '#C8202A'; c.beginPath(); c.moveTo(x + w / 2, y); c.lineTo(x + w, y + h / 2); c.lineTo(x + w / 2, y + h); c.lineTo(x, y + h / 2); c.closePath(); c.fill();
-        c.strokeStyle = '#12355B'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
       },
     },
     7: {
@@ -110,7 +110,7 @@
       significato: 'Ho bisogno di un pilota.',
       disegna(c, x, y, w, h) {
         for (let i = 0; i < 6; i++) { c.fillStyle = i % 2 ? '#1B4FA0' : '#F2C230'; c.fillRect(x + (i * w) / 6, y, w / 6 + 0.5, h); }
-        c.strokeStyle = '#12355B'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
       },
     },
     8: {
@@ -119,7 +119,7 @@
       disegna(c, x, y, w, h) {
         c.fillStyle = '#fff'; c.fillRect(x, y, w / 2, h);
         c.fillStyle = '#C8202A'; c.fillRect(x + w / 2, y, w / 2, h);
-        c.strokeStyle = '#12355B'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
       },
     },
     12: {
@@ -128,7 +128,7 @@
       disegna(c, x, y, w, h) {
         c.fillStyle = '#F2C230'; c.fillRect(x, y, w, h);
         c.fillStyle = '#111'; c.fillRect(x + w / 2, y, w / 2, h / 2); c.fillRect(x, y + h / 2, w / 2, h / 2);
-        c.strokeStyle = '#12355B'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
       },
     },
     14: {
@@ -136,7 +136,7 @@
       significato: 'No.',
       disegna(c, x, y, w, h) {
         for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { c.fillStyle = (i + j) % 2 ? '#fff' : '#1B4FA0'; c.fillRect(x + (i * w) / 4, y + (j * h) / 4, w / 4 + 0.5, h / 4 + 0.5); }
-        c.strokeStyle = '#12355B'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
       },
     },
     15: {
@@ -145,7 +145,52 @@
       disegna(c, x, y, w, h) {
         c.fillStyle = '#F2C230'; c.fillRect(x, y, w, h);
         c.fillStyle = '#C8202A'; c.beginPath(); c.moveTo(x, y); c.lineTo(x + w, y + h); c.lineTo(x + w, y); c.closePath(); c.fill();
-        c.strokeStyle = '#12355B'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+      },
+    },
+    16: {
+      nome: 'Papa',
+      significato: 'Tutto il personale rientri a bordo: la nave sta per partire.',
+      disegna(c, x, y, w, h) {
+        c.fillStyle = '#1B4FA0'; c.fillRect(x, y, w, h);
+        c.fillStyle = '#fff'; c.fillRect(x + w / 3, y + h / 3, w / 3, h / 3);
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+      },
+    },
+    20: {
+      nome: 'Tango',
+      significato: 'Tenetevi lontani da me: sto eseguendo una pesca a strascico a coppia.',
+      disegna(c, x, y, w, h) {
+        c.fillStyle = '#C8202A'; c.fillRect(x, y, w / 3, h);
+        c.fillStyle = '#fff'; c.fillRect(x + w / 3, y, w / 3, h);
+        c.fillStyle = '#1B4FA0'; c.fillRect(x + (2 * w) / 3, y, w / 3 + 0.5, h);
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+      },
+    },
+    2: {
+      nome: 'Bravo',
+      significato: 'Sto caricando, scaricando o trasportando merci pericolose.',
+      disegna(c, x, y, w, h) {
+        c.beginPath(); c.moveTo(x, y); c.lineTo(x + w, y); c.lineTo(x + w * 0.76, y + h / 2); c.lineTo(x + w, y + h); c.lineTo(x, y + h); c.closePath();
+        c.fillStyle = '#C8202A'; c.fill();
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.stroke();
+      },
+    },
+    3: {
+      nome: 'Charlie',
+      significato: 'Sì.',
+      disegna(c, x, y, w, h) {
+        ['#1B4FA0', '#fff', '#C8202A', '#fff', '#1B4FA0'].forEach((col, i) => { c.fillStyle = col; c.fillRect(x, y + (i * h) / 5, w, h / 5 + 0.5); });
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+      },
+    },
+    19: {
+      nome: 'Sierra',
+      significato: 'Le mie macchine vanno indietro.',
+      disegna(c, x, y, w, h) {
+        c.fillStyle = '#fff'; c.fillRect(x, y, w, h);
+        c.fillStyle = '#1B4FA0'; c.fillRect(x + w / 3, y + h / 3, w / 3, h / 3);
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
       },
     },
     13: {
@@ -157,7 +202,7 @@
         c.strokeStyle = '#fff'; c.lineWidth = h * 0.2; c.beginPath();
         c.moveTo(x, y); c.lineTo(x + w, y + h); c.moveTo(x + w, y); c.lineTo(x, y + h); c.stroke();
         c.restore();
-        c.strokeStyle = '#12355B'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
+        c.strokeStyle = '#0B2545'; c.lineWidth = 3; c.strokeRect(x, y, w, h);
       },
     },
   };
@@ -180,8 +225,8 @@
   function bandiera(c, n, x, y, w, h, guadagnata) {
     const b = BANDIERE[n];
     if (guadagnata && b) { b.disegna(c, x, y, w, h); return; }
-    c.setLineDash([12, 9]); c.strokeStyle = '#4A76A8'; c.lineWidth = 3; c.strokeRect(x, y, w, h); c.setLineDash([]);
-    c.font = `${Math.round(h * 0.5)}px Disegno, cursive`; c.fillStyle = '#4A76A8'; c.textAlign = 'center';
+    c.setLineDash([12, 9]); c.strokeStyle = '#5B6B7C'; c.lineWidth = 3; c.strokeRect(x, y, w, h); c.setLineDash([]);
+    c.font = `${Math.round(h * 0.5)}px Disegno, cursive`; c.fillStyle = '#5B6B7C'; c.textAlign = 'center';
     c.fillText(letteraDi(n), x + w / 2, y + h * 0.68); c.textAlign = 'left';
   }
 
