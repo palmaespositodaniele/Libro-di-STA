@@ -75,6 +75,8 @@
     { id: 'dolce', testo: 'Porta l\'acqua da mare a dolce con lo stesso carico.' },
     { id: 'rosso', testo: 'Mar Rosso, agosto, acqua di mare: carica fino alla marca.' },
     { id: 'leone', testo: 'Golfo del Leone, 10 gennaio: confronta 90 m e 150 m.' },
+    { id: 'galleggia', testo: 'In vasca, cala il modello finché galleggia da solo.' },
+    { id: 'acque', testo: 'Fallo galleggiare in acqua dolce e in acqua salmastra.' },
   ];
   const fatte = new Set(salvate.missioni || []);
   const vistiLeone = new Set();
@@ -376,6 +378,107 @@
     if (cambia) { cambia(); controllaMissioni(calcola()); }
   }
 
+  /* In laboratorio: il modello appeso al dinamometro si cala nella vasca (slide 19, 20).
+     Il dinamometro segna il peso apparente, peso − spinta, in percentuale del peso: le slide non danno
+     forze. A galla vale Δ = ρ · ∇ e l'immersione segue la formula della DWA */
+  const ARIA = 5000; // mm di quota del modello appeso, sopra l'acqua
+  const ACQUE = [[1000, 'Dolce'], [1010, 'Salmastra'], [1025, 'Mare']];
+  const TINTA_ACQUA = { 1000: 0x8CC4E4, 1010: 0x5FA3CF, 1025: 0x2E7DB5 };
+  const la = { rho: 1025, h: -ARIA, libero: false, visteAcque: new Set(), copie: [] };
+  const aGalla = () => NAVE.TS + (NAVE.FWA * (1025 - la.rho)) / 25; // mm, slide 19
+  const immersioneLab = () => (la.libero ? aGalla() : Math.max(0, Math.min(la.h, aGalla())));
+  const spintaLab = () => immersioneLab() / aGalla(); // frazione del peso, schematica
+  function testoLab() {
+    const t = Math.round(immersioneLab());
+    if (la.libero) {
+      const extra = Math.round(aGalla() - NAVE.TS);
+      return `**Galleggia**: la spinta è uguale al peso, Δ = ρ · ∇. Immersione ${t} mm${extra ? `, ${extra} mm più che in mare` : ''}. {{slide 19}}`;
+    }
+    if (t <= 0) return 'Il modello è appeso in aria: il dinamometro segna tutto il peso.';
+    return `Immersione ${t} mm: il dinamometro segna il **${Math.round((1 - spintaLab()) * 100)}%** del peso, la spinta regge il resto.`;
+  }
+  function controllaLab() {
+    if (!la.libero) return;
+    completa('galleggia');
+    la.visteAcque.add(la.rho);
+    if (la.visteAcque.has(1000) && la.visteAcque.has(1010)) completa('acque');
+  }
+  function posaLab() {
+    const t = immersioneLab(); const f = la.libero ? 0 : 1 - spintaLab();
+    la.copie.forEach((c) => {
+      const y = (NAVE.TS - (la.libero ? t : la.h)) / 1000; c.nave.position.y = y;
+      // Molla del dinamometro: più lunga quanto più peso regge; a galla il gancio resta libero
+      c.molla.scale.y = 0.35 + 0.65 * f; c.molla.position.y = 34 - (c.molla.scale.y * 8) / 2;
+      c.ago.position.y = 34 - c.molla.scale.y * 8;
+      const yGancio = la.libero ? 20 : 9.5 + y;
+      c.gancio.position.y = yGancio; c.presa.position.y = yGancio;
+      c.asta.scale.y = Math.max(0.05, c.ago.position.y - yGancio); c.asta.position.y = yGancio + c.asta.scale.y / 2;
+      c.funi.forEach((fu) => { fu.visible = !la.libero; });
+      c.acqua.material.color.setHex(TINTA_ACQUA[la.rho]); c.pelo.material.color.setHex(TINTA_ACQUA[la.rho]);
+    });
+  }
+  const creaLab = Lezione.simula({
+    scala: 0.009, centro: [45, 8], k: 5, mare: false, pedana: [45, 62, 'davanti alla vasca'], dopo: posaLab,
+    vista: () => ({ target: new THREE.Vector3(45, 14, 0), theta: 0.28, phi: 1.32, r: 125 }),
+    modello(k, tocca) {
+      const g = new THREE.Group(); const dim = 5 + k * 0.6;
+      const BOX = (w, h, d, col, x, y, z) => { const m = new THREE.Mesh(Tavola.cuoci(new THREE.BoxGeometry(w, h, d), col), new THREE.MeshBasicMaterial({ vertexColors: true })); m.position.set(x, y, z); return m; };
+      const velo = (w, h, d, col, op, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false })); m.position.set(x, y, z); return m; };
+      // Banco e vasca di vetro
+      g.add(BOX(150, 3, 50, '#5B6B7C', 45, -19.5, 0));
+      g.add(velo(130, 18, 0.6, 0x9FC3D6, 0.18, 45, -9, 20), velo(130, 18, 0.6, 0x9FC3D6, 0.25, 45, -9, -20), velo(0.6, 18, 40, 0x9FC3D6, 0.25, -20, -9, 0), velo(0.6, 18, 40, 0x9FC3D6, 0.25, 110, -9, 0));
+      const acqua = velo(129, 16, 39, TINTA_ACQUA[la.rho], 0.32, 45, -8, 0); g.add(acqua);
+      const pelo = new THREE.Mesh(new THREE.PlaneGeometry(129, 39), new THREE.MeshBasicMaterial({ color: TINTA_ACQUA[la.rho], transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide }));
+      pelo.rotation.x = -Math.PI / 2; pelo.position.set(45, 0, 0); g.add(pelo);
+      // Portale con il dinamometro a molla
+      [-24, 114].forEach((x) => g.add(BOX(3, 62, 3, '#13315C', x, 12, -18)));
+      g.add(BOX(141, 3, 3, '#13315C', 45, 43, -18), BOX(3, 3, 20, '#13315C', 45, 43, -9));
+      g.add(BOX(5, 10, 5, '#C9A227', 45, 38, 0));
+      const molla = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 8, 12, 1, true), new THREE.MeshBasicMaterial({ color: COL.inchiostro, wireframe: true })); molla.position.set(45, 30, 0); g.add(molla);
+      const ago = BOX(4, 0.8, 4, '#B3362B', 45, 26, 0); g.add(ago);
+      const scala = BOX(0.6, 9, 6, '#FBFAF4', 49, 29.5, 0); g.add(scala);
+      const asta = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 1, 8), new THREE.MeshBasicMaterial({ color: COL.inchiostro })); asta.position.x = 45; g.add(asta);
+      const gancio = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.35, 8, 16), new THREE.MeshBasicMaterial({ color: COL.inchiostro })); gancio.position.set(45, 12, 0); g.add(gancio);
+      // Modello: appeso per due funi a prua e a poppa
+      const nave = new THREE.Group(); const sc = Scafo.crea(k, true); sc.position.set(0, -6, 0); nave.add(sc);
+      const funi = [12, 78].map((x) => { const f = segmento(new THREE.Vector3(x, 7.2, 0), new THREE.Vector3(45, 9.5, 0), 0.15 * Math.sqrt(k), COL.inchiostro); nave.add(f); return f; });
+      g.add(nave);
+      const e1 = etichetta('dinamometro', dim, '#0B2545'); e1.position.set(70, 34, 0); g.add(e1);
+      const presa = maniglia(2 + k * 0.5, 'gancio'); presa.position.set(45, 12, 6); g.add(presa); tocca(presa);
+      la.copie.push({ nave, molla, ago, asta, gancio, presa, funi, acqua, pelo });
+      return g;
+    },
+    trascina(id, dx, dy) {
+      if (la.libero) return;
+      const prima = Math.round(immersioneLab() / 100);
+      la.h = Math.max(-ARIA, Math.min(aGalla(), la.h + dy * 24));
+      if (la.h >= aGalla()) { la.libero = true; controllaLab(); }
+      posaLab();
+      if (Math.round(immersioneLab() / 100) !== prima || la.libero) Motore.ridisegna();
+    },
+  });
+  function comandoLab(id) {
+    if (id === 'la:aggancia') { la.libero = false; la.h = -ARIA; }
+    if (id.startsWith('la:') && ACQUE.some(([r]) => `la:${r}` === id)) { la.rho = Number(id.slice(3)); if (!la.libero) la.h = Math.min(la.h, aGalla()); controllaLab(); }
+    posaLab(); Motore.sporco();
+  }
+  // Righello sul fianco: marche S e F e il galleggiamento del modello, ingranditi
+  function righello(c, x, y, w, h) {
+    const da = -60; const a = 160; const Y = (mm) => y + h - 20 - ((mm - da) / (a - da)) * (h - 40);
+    const xs = x + 160;
+    c.fillStyle = '#7A2E26'; c.fillRect(xs, y, 120, h);
+    const liv = immersioneLab() - NAVE.TS;
+    if (liv >= da) { c.fillStyle = 'rgba(46,125,181,0.45)'; c.fillRect(x, Math.min(y + h, Y(liv)), w, y + h - Math.min(y + h, Y(liv))); c.strokeStyle = C.acqua; c.lineWidth = 4; c.beginPath(); c.moveTo(x, Y(liv)); c.lineTo(x + w, Y(liv)); c.stroke(); }
+    [['S', 0], ['F', NAVE.FWA]].forEach(([m, v]) => {
+      c.fillStyle = '#FBFAF4'; c.fillRect(xs + 10, Y(v) - 4, 100, 8);
+      c.font = Pagina.font('b', 34); c.fillStyle = C.ink; c.textAlign = 'right'; c.fillText(m, xs - 16, Y(v) + 12);
+    });
+    c.textAlign = 'left'; c.font = Pagina.font('n', 30); c.fillStyle = C.ink;
+    if (liv < da) c.fillText('acqua più in basso', xs + 150, y + h - 20);
+    else c.fillText(`galleggiamento: ${liv >= 0 ? '+' : '−'}${Math.abs(Math.round(liv))} mm dalla S`, xs + 150, Math.max(y + 34, Math.min(y + h - 10, Y(liv) - 12)));
+    c.fillStyle = C.ink2; c.fillText('marche ingrandite', xs + 150, y + 30);
+  }
+
   /* Disegni delle pagine ------------------------------------------------------------ */
 
   function sezioneMaestra(c, x, y, w, h) {
@@ -463,7 +566,7 @@
           { t: 'bottoni', h: 84, size: 34, lista: [{ id: 'r:1025', testo: 'Mare', on: s.rho === 1025 }, { id: 'r:1010', testo: 'Salmastra', on: s.rho === 1010 }, { id: 'r:1000', testo: 'Dolce', on: s.rho === 1000 }] },
           { t: 'passo', id: 'carico', nome: 'Carico, dalla S in mare', valore: conSegno(s.carico) },
           { t: 'bottoni', h: 84, size: 34, lista: [{ id: 'l:90', testo: 'Nave 90 m', on: s.lunghezza === 90 }, { id: 'l:150', testo: 'Nave 150 m', on: s.lunghezza === 150 }] },
-          ...MISSIONI.map((m) => ({ t: 'spunta', testo: m.testo, fatta: fatte.has(m.id) })),
+          ...MISSIONI.slice(0, 3).map((m) => ({ t: 'spunta', testo: m.testo, fatta: fatte.has(m.id) })),
         ],
         dx: [
           {
@@ -481,6 +584,22 @@
           { t: 'nota', testo: 'Tira la sfera d\'oro verso il basso per caricare.' },
         ],
         azione: comandoProva,
+      },
+      {
+        passo: 2, mondo: creaLab, azione: comandoLab,
+        richiede: () => ['dolce', 'rosso', 'leone'].every((m) => fatte.has(m)), avviso: 'Se salti, niente bandiera.',
+        sx: [
+          { t: 'sotto', testo: 'In laboratorio: Archimede e la densità' },
+          { t: 'bottoni', h: 84, size: 32, lista: ACQUE.map(([rho, nome]) => ({ id: `la:${rho}`, testo: `${nome} ${rho}`, on: la.rho === rho })) },
+          { t: 'riquadro', size: 36, testo: testoLab() },
+          ...(la.libero ? [{ t: 'bottoni', h: 80, size: 32, lista: [{ id: 'la:aggancia', testo: 'Riaggancia al dinamometro' }] }] : []),
+          { t: 'disegno', h: 330, fn: righello },
+          ...MISSIONI.slice(3).map((m) => ({ t: 'spunta', testo: m.testo, fatta: fatte.has(m.id) })),
+        ],
+        dx: [
+          ...Lezione.finestra(760, 'Punta la sfera d\'oro sul gancio, tieni premuto il grilletto e abbassa la mano.'),
+          { t: 'nota', testo: 'Tira giù la sfera d\'oro per calare il modello. Nave di esempio della slide 20 (TS = 6,00 m, FWA = 110 mm); la spinta durante la discesa è schematica.' },
+        ],
       },
       {
         passo: 3, aletta: () => !!Libro.stato(N).aletta,

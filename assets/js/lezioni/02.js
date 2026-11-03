@@ -7,6 +7,8 @@
   const MISSIONI = [
     { id: 'hsc', testo: 'Accelera fino a superare il limite HSC.' },
     { id: 'planante', testo: 'Accelera ancora: la spinta idrodinamica diventa prevalente.' },
+    { id: 'misure', testo: 'In vasca, registra cinque misure a velocità diverse.' },
+    { id: 'pari', testo: 'Registra la velocità in cui le due spinte si equivalgono.' },
     { id: 'carte', testo: 'Metti ogni nave nella categoria giusta.' },
   ];
   const QUIZ = [
@@ -26,7 +28,8 @@
   const so = { v: 0, d: 2, copie: [] };
   const limiteHSC = () => 7.16 * DISLOCAMENTI[so.d] ** (1 / 6);
   // Quota della spinta idrodinamica: cresce col quadrato di v, schematica
-  const quotaS = () => Math.min(0.85, 0.3 * (so.v / limiteHSC()) ** 2);
+  const quota = (v) => Math.min(0.85, 0.3 * (v / limiteHSC()) ** 2);
+  const quotaS = () => quota(so.v);
   function statoCarena() {
     if (so.v < limiteHSC()) return ['Carena dislocante', 'la spinta idrodinamica è ancora poca.'];
     if (quotaS() <= 0.5) return ['Nave veloce (HSC)', 'componente idrodinamica significativa, ma minore di quella idrostatica.'];
@@ -71,6 +74,130 @@
     if (id === 'd+') so.d = Math.min(DISLOCAMENTI.length - 1, so.d + 1);
     if (id === 'd-') so.d = Math.max(0, so.d - 1);
     posaCarena(); Motore.sporco();
+  }
+
+  /* Simulazione 1b: in laboratorio, la vasca navale (slide 3-6). Il carro traina il modello e il
+     dinamometro divide Δ = ρ · ∇(v) + S(v) nelle due spinte. Stessa quota schematica della simulazione 1 */
+  const va = { v: 0, misure: [], copie: [], scia: 0 };
+  const VMAX = 60;
+  const BOX = (w, h, d, col, x, y, z) => { const m = new THREE.Mesh(cuoci(new THREE.BoxGeometry(w, h, d), col), new THREE.MeshBasicMaterial({ vertexColors: true })); m.position.set(x, y, z); return m; };
+  const vetro = (w, h, d, col, op, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false })); m.position.set(x, y, z); return m; };
+  const pc = (f) => `${Math.round(f * 100)}%`;
+  function posaVasca() {
+    const f = quota(va.v);
+    va.copie.forEach((c) => {
+      c.nave.position.y = f * 4.2; c.nave.rotation.z = f * 0.07;
+      c.idro.scale.y = Math.max(0.01, (1 - f) * 22); c.idro.position.y = c.idro.scale.y / 2;
+      c.dina.scale.y = Math.max(0.01, f * 22); c.dina.position.y = c.idro.scale.y + c.dina.scale.y / 2;
+      c.presa.position.x = -20 + (va.v / VMAX) * 130;
+      c.prua.forEach((o) => { o.scale.set(0.2 + (va.v / VMAX) * 1.6, 1, 0.2 + (va.v / VMAX) * 2.2); o.visible = va.v > 0.5; });
+    });
+  }
+  const creaVasca = Lezione.simula({
+    scala: 0.006, centro: [45, 4], k: 5, mare: false, pedana: [45, 70, 'sul bordo della vasca'], dopo: posaVasca,
+    vista: () => ({ target: new THREE.Vector3(45, 18, 0), theta: 0.3, phi: 1.24, r: 175 }),
+    modello(k, tocca) {
+      const g = new THREE.Group(); const dim = 5 + k * 0.6;
+      // Vasca: fondo, parete di fondo, parete di vetro verso chi guarda, acqua
+      g.add(BOX(270, 2, 74, '#5B6B7C', 45, -25, 0), BOX(270, 30, 2, '#D8E0EC', 45, -9, -37));
+      g.add(vetro(270, 30, 1, 0x9FC3D6, 0.16, 45, -9, 37), vetro(270, 24, 72, 0x2E7DB5, 0.3, 45, -12, 0));
+      const pelo = new THREE.Mesh(new THREE.PlaneGeometry(270, 72), new THREE.MeshBasicMaterial({ color: 0x5FA3CF, transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide }));
+      pelo.rotation.x = -Math.PI / 2; pelo.position.set(45, 0, 0); g.add(pelo);
+      // Rotaie del carro e tacche che scorrono: il carro resta in vista, è la vasca a scorrere
+      [-37, 37].forEach((z) => g.add(BOX(270, 1.4, 2.4, '#1F2A37', 45, 6.7, z), BOX(270, 0.6, 2, '#C5CBD3', 45, 6, z)));
+      const tacche = [];
+      for (let i = 0; i < 14; i++) [-37, 37].forEach((z) => { const t = BOX(1.2, 1.6, 3, i % 5 ? '#C9A227' : '#B3362B', -88 + i * 20, 7.6, z); g.add(t); tacche.push(t); });
+      // Carro dinamometrico
+      g.add(BOX(16, 5, 80, '#13315C', 45, 32, 0));
+      [-37, 37].forEach((z) => g.add(BOX(5, 24, 5, '#13315C', 45, 19, z)));
+      g.add(BOX(8, 6, 8, '#C9A227', 45, 26.5, 0));
+      // Modello trainato: il dinamometro tiene l'asta, la carena si alza con la velocità
+      const perno = new THREE.Group(); perno.position.set(45, 0, 0);
+      const nave = new THREE.Group(); const sc = Scafo.crea(k, true); sc.position.set(-45, -Y_ACQUA, 0); nave.add(sc);
+      nave.add(segmento(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 26, 0), 0.5 * Math.sqrt(k), COL.inchiostro));
+      perno.add(nave); g.add(perno);
+      // Onda di prua: cresce con la velocità
+      const prua = [1, -1].map((lato) => {
+        const o = new THREE.Mesh(new THREE.ConeGeometry(4, 2.4, 3), new THREE.MeshBasicMaterial({ color: 0xFBFAF4, transparent: true, opacity: 0.85 }));
+        o.rotation.z = -Math.PI / 2; o.position.set(90, 0.6, lato * 5); g.add(o); return o;
+      });
+      // Scia: creste che scorrono verso poppa
+      const creste = [];
+      for (let i = 0; i < 7; i++) { const c = vetro(1.4, 0.5, 30, 0xFBFAF4, 0.8, 0, 0.3, 0); g.add(c); creste.push(c); }
+      // Dinamometro: le due spinte, sempre a somma Δ
+      const colonna = new THREE.Group(); colonna.position.set(45, 34.5, -30);
+      const bar = (col) => new THREE.Mesh(new THREE.BoxGeometry(6, 1, 6), new THREE.MeshBasicMaterial({ color: col }));
+      const idro = bar(COL.acqua); const dina = bar(COL.ocra); colonna.add(idro, dina); g.add(colonna);
+      const e0 = etichetta('Δ', dim + 1, '#0B2545'); e0.position.set(45, 61, -30); g.add(e0);
+      const e1 = etichetta('idrostatica ρ·∇', dim, '#0B2545'); e1.position.set(82, 40, -30); g.add(e1);
+      const e2 = etichetta('idrodinamica S', dim, '#8C7020'); e2.position.set(82, 52, -30); g.add(e2);
+      // Manetta del carro
+      g.add(segmento(new THREE.Vector3(-20, 44, 30), new THREE.Vector3(110, 44, 30), 0.25 * Math.sqrt(k), COL.inchiostro));
+      const e3 = etichetta('velocità del carro', dim, '#0B2545'); e3.position.set(38, 50, 30); g.add(e3);
+      const presa = maniglia(2 + k * 0.5, 'v'); presa.position.set(-20, 44, 30); g.add(presa); tocca(presa);
+      va.copie.push({ nave: perno, idro, dina, presa, prua, tacche, creste });
+      return g;
+    },
+    trascina(id, dx) {
+      const prima = Math.round(va.v);
+      va.v = Math.max(0, Math.min(VMAX, va.v + dx * 0.09));
+      posaVasca();
+      if (Math.round(va.v) !== prima) Motore.ridisegna();
+    },
+    frame(dt) {
+      if (va.v < 0.5 && va.scia <= 0) return false;
+      const passo = va.v * dt * 1.6;
+      va.scia = va.v > 0.5 ? 1 : Math.max(0, va.scia - dt);
+      va.copie.forEach((c) => {
+        c.tacche.forEach((t) => { t.position.x -= passo; if (t.position.x < -88) t.position.x += 280; });
+        c.creste.forEach((o, i) => {
+          const u = ((performance.now() / 1000) * (0.25 + va.v / VMAX) + i / c.creste.length) % 1;
+          o.position.x = -2 - u * 80; o.scale.set(1, 1, 0.3 + u * 1.6);
+          o.material.opacity = va.scia * (va.v / VMAX) * 0.9 * (1 - u);
+        });
+      });
+      return true;
+    },
+  });
+  function comandiVasca(id) {
+    if (id === 'd+' || id === 'd-') { comandiCarena(id); va.misure = []; }
+    if (id === 'v+') va.v = Math.min(VMAX, Math.round(va.v) + 1);
+    if (id === 'v-') va.v = Math.max(0, Math.round(va.v) - 1);
+    if (id === 'svuota') va.misure = [];
+    if (id.startsWith('lascia:')) va.v = Math.round(va.v);
+    if (id === 'registra') {
+      const v = Math.round(va.v);
+      va.misure = va.misure.filter((m) => m.v !== v).concat([{ v, q: quota(v) }]).sort((a, b) => a.v - b.v);
+      if (va.misure.length >= 5) lez.completa('misure');
+      if (va.misure.some((m) => Math.abs(m.q - 0.5) <= 0.03)) lez.completa('pari');
+    }
+    posaVasca(); Motore.sporco();
+  }
+  // Grafico delle misure: le due spinte in percentuale di Δ, al variare della velocità
+  function grafico(c, x, y, w, h) {
+    const { C, font } = Pagina;
+    const ox = x + 70; const oy = y + h - 50; const gw = w - 90; const gh = h - 100;
+    const X = (v) => ox + (v / VMAX) * gw; const Y = (f) => oy - f * gh;
+    c.strokeStyle = C.ink2; c.lineWidth = 2; c.strokeRect(ox, oy - gh, gw, gh);
+    c.font = font('n', 28); c.fillStyle = C.ink2; c.textAlign = 'right';
+    [0, 50, 100].forEach((p) => c.fillText(`${p}%`, ox - 10, Y(p / 100) + 9));
+    c.textAlign = 'center';
+    [0, 20, 40].forEach((v) => c.fillText(String(v), X(v), oy + 34));
+    c.textAlign = 'right'; c.fillText('60 kn', X(60), oy + 34); c.textAlign = 'center';
+    c.setLineDash([10, 8]); c.strokeStyle = C.ink2;
+    c.beginPath(); c.moveTo(ox, Y(0.5)); c.lineTo(ox + gw, Y(0.5)); c.stroke();
+    const vh = limiteHSC();
+    if (vh <= VMAX) { c.strokeStyle = C.rosso; c.beginPath(); c.moveTo(X(vh), oy); c.lineTo(X(vh), oy - gh); c.stroke(); c.fillStyle = C.rosso; c.textAlign = 'left'; c.fillText('HSC', X(vh) + 8, oy - gh + 30); c.textAlign = 'center'; }
+    c.setLineDash([]);
+    [[(m) => 1 - m.q, C.acqua], [(m) => m.q, C.ocra]].forEach(([val, col]) => {
+      c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 4;
+      c.beginPath(); va.misure.forEach((m, i) => { if (i) c.lineTo(X(m.v), Y(val(m))); else c.moveTo(X(m.v), Y(val(m))); }); c.stroke();
+      va.misure.forEach((m) => { c.beginPath(); c.arc(X(m.v), Y(val(m)), 9, 0, Math.PI * 2); c.fill(); });
+    });
+    c.textAlign = 'left'; c.font = font('b', 28);
+    c.fillStyle = C.acqua; c.fillText('● idrostatica', ox, y + 26);
+    c.fillStyle = C.ocraT; c.fillText('● idrodinamica', ox + 250, y + 26);
+    if (!va.misure.length) { c.fillStyle = C.ink2; c.font = font('n', 30); c.textAlign = 'center'; c.fillText('Nessuna misura registrata', ox + gw / 2, Y(0.75)); c.textAlign = 'left'; }
   }
 
   /* Simulazione 2: in quale categoria? -------------------------------------------------------- */
@@ -272,13 +399,29 @@
         ],
       },
       {
-        passo: 2, mondo: creaCarte, azione: comandiCarte, richiede: () => lez.fatte.has('planante'), avviso: 'Se salti, niente bandiera.',
+        passo: 2, mondo: creaVasca, azione: comandiVasca, richiede: () => lez.fatte.has('planante'), avviso: 'Se salti, niente bandiera.',
+        sx: [
+          { t: 'sotto', testo: 'In laboratorio: la vasca navale' },
+          { t: 'passo', id: 'd', nome: 'Dislocamento Δ', valore: `${DISLOCAMENTI[so.d].toLocaleString('it-IT')} t` },
+          { t: 'passo', id: 'v', nome: 'Velocità del carro', valore: `${Math.round(va.v)} kn` },
+          { t: 'riquadro', size: 34, testo: `Idrostatica **${pc(1 - quota(va.v))}**, idrodinamica **${pc(quota(va.v))}** di Δ. Volume immerso: ${pc(1 - quota(va.v))} di quello da fermo. {{slide 4}}` },
+          { t: 'bottoni', h: 84, size: 32, lista: [{ id: 'registra', testo: 'Registra la misura', on: true }, { id: 'svuota', testo: 'Cancella' }] },
+          { t: 'disegno', h: 360, fn: grafico },
+          ...lez.missioni().slice(2, 4),
+        ],
+        dx: [
+          ...Lezione.finestra(760),
+          { t: 'nota', testo: 'Il carro traina il modello; il dinamometro divide il dislocamento nelle due spinte. Valori schematici; il limite HSC è la formula della slide 5.' },
+        ],
+      },
+      {
+        passo: 2, mondo: creaCarte, azione: comandiCarte, richiede: () => lez.fatte.has('pari'), avviso: 'Se salti, niente bandiera.',
         sx: [
           { t: 'sotto', testo: 'In quale categoria?' },
           { t: 'riquadro', size: 40, testo: ca.i < CARTE.length ? `Nave ${ca.i + 1} di ${CARTE.length}: **${CARTE[ca.i][0]}**` : 'Tutte le navi sono al loro posto.' },
           ...(ca.esito ? [{ t: 'esito', ...ca.esito }] : []),
           { t: 'bottoni', h: 76, size: 32, lista: [{ id: 'daccapo', testo: 'Da capo' }] },
-          ...lez.missioni().slice(2),
+          ...lez.missioni().slice(4),
           { t: 'nota', testo: 'Trascina la nave sulla banchina giusta, oppure tocca la banchina.' },
         ],
         dx: Lezione.finestra(760, 'Tira la sfera d\'oro sulla banchina, oppure punta la banchina e premi il grilletto.'),

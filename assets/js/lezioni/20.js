@@ -3,11 +3,15 @@
 (function () {
   const N = 20;
   const { COL, tela, etichetta, maniglia, cuoci, segmento } = Tavola;
+  const { C } = Pagina;
 
   const MISSIONI = [
     { id: 'ciclo', testo: 'Porta il container dalla nave fino al gate.' },
     { id: 'teu', testo: 'Confronta un container da 20 e uno da 40 piedi.' },
     { id: 'codice', testo: 'Leggi le quattro parti del codice sul container.' },
+    { id: 'carico12', testo: 'Carica 12 TEU usando anche container da 40\'.' },
+    { id: 'lato', testo: 'Carica un solo lato: da che parte sbanda la nave?' },
+    { id: 'dritta', testo: 'Carica almeno 16 TEU con la nave dritta e senza sbandamento.' },
   ];
   const QUIZ = [
     { n: 1, testo: 'Quale Incoterm indica la merce consegnata a bordo nel porto d\'imbarco?', scelte: ['EXW', 'FOB', 'DDP'], giusta: 1, perche: 'Free On Board: da lì rischi e costi passano al compratore.' },
@@ -228,6 +232,112 @@
     posaContainer(); Motore.sporco();
   }
 
+  /* Simulazione 5: piano di carico sulla coperta. 6 baie da 20' e 4 file; misure dalla slide 22,
+     TEU dalla slide 22, assetto come alla lezione 9 (TRIM = TA − TF). Pesi uguali, inclinazioni schematiche */
+  const BAIE = 6; const FILE = 4; const LC = 6.06; const LA = 2.44; const HC = 2.59; const X0C = 45 - (BAIE * LC) / 2;
+  const pc = { tipo: 20, celle: Array.from({ length: BAIE * FILE }, () => null), nuovo: 0, copie: [] };
+  const cella = (i, j) => i * FILE + j;
+  const carichi = () => { const v = new Map(); pc.celle.forEach((c) => { if (c) v.set(c.id, c); }); return [...v.values()]; };
+  const teu = () => pc.celle.filter(Boolean).length;
+  // Momenti rispetto al centro della coperta, in caselle: lungo la nave (+ verso prua) e di traverso (+ a dritta)
+  function momenti() {
+    let mx = 0; let mz = 0;
+    pc.celle.forEach((c, k) => { if (!c) return; const i = Math.floor(k / FILE); const j = k % FILE; mx += i - (BAIE - 1) / 2; mz += j - (FILE - 1) / 2; });
+    return { mx, mz };
+  }
+  function statoPiano() {
+    const { mx, mz } = momenti();
+    return {
+      assetto: Math.abs(mx) < 0.01 ? 'dritta, TA = TF' : mx > 0 ? 'appruata, TF > TA' : 'appoppata, TA > TF',
+      sbanda: Math.abs(mz) < 0.01 ? 'nessuno sbandamento' : mz > 0 ? 'sbandata a dritta' : 'sbandata a sinistra',
+      mx, mz,
+    };
+  }
+  function testoPiano() {
+    const n = carichi(); const da40 = n.filter((c) => c.tipo === 40).length;
+    if (!n.length) return 'Coperta vuota. Scegli il container e tocca una casella.';
+    const st = statoPiano();
+    return `A bordo ${n.length} container (${da40} da 40'): **${teu()} TEU**. {{slide 22}} Nave **${st.assetto}**, **${st.sbanda}**. {{lezione 9}}`;
+  }
+  function controllaPiano() {
+    const n = carichi(); const st = statoPiano(); const t = teu();
+    if (t === 12 && n.some((c) => c.tipo === 40)) lez.completa('carico12');
+    const lati = new Set(pc.celle.map((c, k) => (c ? (k % FILE < FILE / 2 ? 's' : 'd') : null)).filter(Boolean));
+    if (t >= 4 && lati.size === 1) lez.completa('lato');
+    if (t >= 16 && st.mx === 0 && st.mz === 0) lez.completa('dritta');
+  }
+  const TINTE_C = ['#B3362B', '#2E7DB5', '#2F7A55', '#C9A227', '#5B6B7C', '#8C4A8C'];
+  function posaPiano() {
+    const st = statoPiano(); const n = carichi();
+    pc.copie.forEach((c) => {
+      c.assetto.rotation.z = -st.mx * 0.004; c.assetto.rotation.x = st.mz * 0.008;
+      c.scatole.forEach((m) => { m.visible = false; });
+      n.forEach((ca, q) => {
+        const m = c.scatole[q]; const lung = ca.tipo === 40 ? 2 * LC : LC;
+        m.scale.set(lung - 0.2, HC, LA - 0.12); m.position.set(X0C + ca.i * LC + lung / 2, Scafo.PONTE + HC / 2 + 0.05, (ca.j - (FILE - 1) / 2) * LA);
+        m.material.color.set(TINTE_C[ca.id % TINTE_C.length]); m.visible = true; m.userData.tocco = `pc:${ca.i}:${ca.j}`;
+      });
+    });
+  }
+  const creaPiano = Lezione.simula({
+    scala: 0.012, centro: [45, 4], k: 4, pedana: [45, 30, 'a dritta'], dopo: posaPiano,
+    vista: () => ({ target: new THREE.Vector3(45, 7, 0), theta: 0.75, phi: 1.05, r: 85 }),
+    modello(k, tocca) {
+      const g = new THREE.Group(); const assetto = new THREE.Group(); assetto.position.set(45, 0, 0);
+      const nave = Scafo.crea(k); nave.position.set(-45, -6, 0); assetto.add(nave);
+      const caselle = new THREE.Group(); caselle.position.set(-45, -6, 0);
+      for (let i = 0; i < BAIE; i++) {
+        for (let j = 0; j < FILE; j++) {
+          const m = new THREE.Mesh(new THREE.PlaneGeometry(LC - 0.3, LA - 0.2), new THREE.MeshBasicMaterial({ color: (i + j) % 2 ? 0xE3C878 : 0xF4E7B8, transparent: true, opacity: 0.85 }));
+          m.rotation.x = -Math.PI / 2; m.position.set(X0C + i * LC + LC / 2, Scafo.PONTE + 0.08, (j - (FILE - 1) / 2) * LA);
+          m.userData.tocco = `pc:${i}:${j}`; caselle.add(m); tocca(m);
+        }
+      }
+      const scatole = [];
+      for (let q = 0; q < BAIE * FILE; q++) {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xB3362B }));
+        m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: COL.inchiostro })));
+        m.visible = false; caselle.add(m); scatole.push(m); tocca(m);
+      }
+      assetto.add(caselle);
+      const pr = etichetta('prua', 4 + k); pr.position.set(55, 6, 0); assetto.add(pr);
+      const dr = etichetta('dritta', 4 + k); dr.position.set(-20, 4, 15); assetto.add(dr);
+      g.add(assetto);
+      pc.copie.push({ assetto, scatole });
+      return g;
+    },
+  });
+  function comandiPiano(id) {
+    if (id === 'pc:20' || id === 'pc:40') pc.tipo = Number(id.slice(3));
+    if (id === 'pc:svuota') pc.celle.fill(null);
+    const tocco = id.startsWith('t:') ? id.slice(2).split(',').find((x) => x.startsWith('pc:')) : null;
+    if (tocco) {
+      const [, i, j] = tocco.split(':').map(Number); const c = pc.celle[cella(i, j)];
+      if (c) pc.celle.forEach((x, k) => { if (x && x.id === c.id) pc.celle[k] = null; });
+      else if (pc.tipo === 20) pc.celle[cella(i, j)] = { id: ++pc.nuovo, tipo: 20, i, j };
+      else {
+        // Il 40 piedi occupa due baie: questa e la successiva, o la precedente se in fondo
+        const i0 = i + 1 < BAIE && !pc.celle[cella(i + 1, j)] ? i : i - 1 >= 0 && !pc.celle[cella(i - 1, j)] ? i - 1 : -1;
+        if (i0 >= 0) { const ca = { id: ++pc.nuovo, tipo: 40, i: i0, j }; pc.celle[cella(i0, j)] = ca; pc.celle[cella(i0 + 1, j)] = ca; }
+      }
+    }
+    controllaPiano(); posaPiano(); Motore.sporco();
+  }
+  // Pianta della coperta: prua a destra, dritta in basso
+  function piantaPiano(c, x, y, w, h) {
+    const cw = Math.min((w - 160) / BAIE, (h - 60) / FILE * 2.4); const ch = cw / 2.4; const x0 = x + 60; const y0 = y + 20;
+    c.strokeStyle = C.ink; c.lineWidth = 4; c.beginPath();
+    c.moveTo(x0 - 40, y0 - 10); c.lineTo(x0 + BAIE * cw + 20, y0 - 10); c.quadraticCurveTo(x0 + BAIE * cw + 90, y0 + (FILE * ch) / 2, x0 + BAIE * cw + 20, y0 + FILE * ch + 10);
+    c.lineTo(x0 - 40, y0 + FILE * ch + 10); c.closePath(); c.stroke();
+    for (let i = 0; i < BAIE; i++) for (let j = 0; j < FILE; j++) { c.strokeStyle = C.ink2; c.lineWidth = 1.5; c.strokeRect(x0 + i * cw, y0 + j * ch, cw, ch); }
+    carichi().forEach((ca) => {
+      const lung = ca.tipo === 40 ? 2 : 1;
+      c.fillStyle = TINTE_C[ca.id % TINTE_C.length]; c.fillRect(x0 + ca.i * cw + 3, y0 + ca.j * ch + 3, lung * cw - 6, ch - 6);
+    });
+    c.fillStyle = C.ink2; c.font = Pagina.font('n', 26);
+    c.fillText('prua →', x0 + BAIE * cw - 60, y + h - 8); c.fillText('sinistra in alto, dritta in basso', x0, y + h - 8);
+  }
+
   /* Simulazione 4: la pianta del porto (figura della slide 26) ------------------------------------ */
   const LUOGHI = {
     diga: '**Diga foranea**: protegge lo specchio d\'acqua dalle onde.',
@@ -339,11 +449,25 @@
           bott(lista.slice(0, 3)), bott(lista.slice(3)),
           { t: 'riquadro', size: 36, testo: `**${TIPI[co.tipo][0]}**: ${TIPI[co.tipo][1]} {{slide 23}}` },
           ...(co.parte ? [{ t: 'riquadro', size: 36, testo: PARTI[co.parte] }] : []),
-          ...lez.missioni().slice(1),
+          ...lez.missioni().slice(1, 3),
         ],
         dx: [
           ...Lezione.finestra(760, 'Punta il codice sulle porte, gli angoli o la targa e premi il grilletto.'),
           { t: 'nota', testo: 'Tocca sulle porte le quattro parti del codice, i blocchi d\'angolo, la targa. Misure vere: slide 22. Il codice è inventato.' },
+        ],
+      },
+      {
+        passo: 2, mondo: creaPiano, azione: comandiPiano,
+        sx: [
+          { t: 'titolo', testo: 'Piano di carico' },
+          { t: 'bottoni', h: 80, size: 30, lista: [{ id: 'pc:20', testo: 'Da 20\' (1 TEU)', on: pc.tipo === 20 }, { id: 'pc:40', testo: 'Da 40\' (2 TEU)', on: pc.tipo === 40 }, { id: 'pc:svuota', testo: 'Svuota' }] },
+          { t: 'riquadro', size: 34, testo: testoPiano() },
+          { t: 'disegno', h: 300, fn: piantaPiano },
+          ...lez.missioni().slice(3),
+        ],
+        dx: [
+          ...Lezione.finestra(700, 'Punta una casella sulla coperta e premi il grilletto per caricare.'),
+          { t: 'nota', testo: 'Tocca una casella della coperta: carichi lì il container, tocca un container per toglierlo. Pesi uguali; assetto e sbandamento sono schematici, ingranditi per vederli.' },
         ],
       },
       {

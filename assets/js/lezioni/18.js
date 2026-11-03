@@ -2,7 +2,7 @@
    valori di pressione e velocità del vento nel modello non sono dati */
 (function () {
   const N = 18;
-  const { COL, tratto, etichetta, pedana } = Tavola;
+  const { COL, tratto, segmento, etichetta, pedana, maniglia } = Tavola;
   const { C } = Pagina;
   const { griglia } = Scafo;
 
@@ -11,6 +11,9 @@
     { id: 'fitte', testo: 'Rendi profonda la bassa: isobare fitte, vento forte.' },
     { id: 'emisfero', testo: 'Passa all\'emisfero sud: come gira il vento?' },
     { id: 'fronte', testo: 'Guarda il passaggio del fronte freddo.' },
+    { id: 'torricelli', testo: 'Capovolgi il tubo di Torricelli nella vaschetta.' },
+    { id: 'mmhg', testo: 'Porta la colonna a 750 mmHg: quanti hPa sono?' },
+    { id: 'tendenza', testo: 'Annota la lettura, poi fai scendere la pressione.' },
   ];
   const QUIZ = [{ n: 3, testo: 'Vento da ovest, emisfero nord. In quale direzione si trova la bassa pressione?', scelte: ['A nord', 'A sud', 'A est'], giusta: 0, perche: 'A nord, a sinistra di chi ha il vento alle spalle.' }];
   const CALCOLI = [
@@ -283,6 +286,109 @@
     },
   });
 
+  /* Il barometro di Torricelli, a grandezza vera su un banco (slide 35, 36, 37).
+     La colonna si misura dal pelo del mercurio nella vaschetta; 1 mmHg ≈ 4/3 hPa */
+  const BANCO = 0.9; const PELO = BANCO + 0.04; const TUBO = 0.9;
+  const ba = { capovolto: false, h: 760, vista: TUBO * 1000, prima: null, copie: [] };
+  const hpa = (mm) => Math.round((mm * 4) / 3);
+  function testoTendenza() {
+    const d = hpa(ba.h) - hpa(ba.prima);
+    if (d === 0) return 'Tre ore dopo la pressione è la stessa: tendenza nulla.';
+    return d < 0
+      ? `Tre ore dopo: **−${-d} hPa**. Tendenza negativa: il tempo tende a peggiorare. {{slide 37}}`
+      : `Tre ore dopo: **+${d} hPa**. Tendenza positiva: il tempo tende a migliorare. {{slide 37}}`;
+  }
+  function controllaBaro() {
+    if (!ba.capovolto) return;
+    lez.completa('torricelli');
+    if (ba.h === 750) lez.completa('mmhg');
+    if (ba.prima !== null && hpa(ba.h) < hpa(ba.prima)) lez.completa('tendenza');
+  }
+  function posaBaro() {
+    const spinta = (ba.h - 712) / 76; // 0 … 1 nell'intervallo della prova
+    ba.copie.forEach((c) => {
+      const h = ba.vista / 1000;
+      c.colonna.scale.y = h + 0.03; c.colonna.position.y = PELO - 0.03 + (h + 0.03) / 2;
+      c.vuoto.visible = ba.capovolto;
+      c.frecce.forEach((f) => { f.scale.y = 0.4 + spinta; });
+      c.presa.position.y = PELO + 0.02 + 0.12 * (0.4 + spinta);
+      c.dito.visible = !ba.capovolto;
+    });
+  }
+  const creaBaro = Lezione.simula({
+    scala: 0.45, centro: [0, 1.3], k: 2, mare: false, pedana: [0, 2.9, 'davanti al banco'], dopo: posaBaro,
+    vista: () => ({ target: new THREE.Vector3(0.1, 1.4, 0), theta: 0.15, phi: 1.42, r: 3.3 }),
+    modello(k, tocca) {
+      const g = new THREE.Group();
+      const BOX = (w, h, d, col, x, y, z) => { const m = new THREE.Mesh(Tavola.cuoci(new THREE.BoxGeometry(w, h, d), col), new THREE.MeshBasicMaterial({ vertexColors: true })); m.position.set(x, y, z); return m; };
+      const vetro = (geo, x, y) => { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x9FC3D6, transparent: true, opacity: 0.28, depthWrite: false, side: THREE.DoubleSide })); m.position.set(x, y, 0); return m; };
+      const MERCURIO = new THREE.MeshBasicMaterial({ color: 0x7E8A96 });
+      g.add(BOX(0.36, 1.0, 0.02, '#EFE6D0', 0.06, PELO + 0.47, -0.07)); // tavoletta dietro il tubo
+      g.add(BOX(1.1, 0.04, 0.6, '#7A4E2D', 0.1, BANCO - 0.02, 0));
+      [[-0.4, -0.25], [-0.4, 0.25], [0.6, -0.25], [0.6, 0.25]].forEach(([x, z]) => g.add(BOX(0.05, BANCO - 0.04, 0.05, '#5E3920', x, (BANCO - 0.04) / 2, z)));
+      // Vaschetta con il mercurio e tubo di vetro chiuso in cima
+      g.add(vetro(new THREE.CylinderGeometry(0.12, 0.11, 0.07, 32, 1, true), 0, BANCO + 0.035));
+      const bagno = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.11, 0.04, 32), MERCURIO); bagno.position.set(0, BANCO + 0.02, 0); g.add(bagno);
+      g.add(vetro(new THREE.CylinderGeometry(0.02, 0.02, TUBO, 16), 0, PELO - 0.03 + TUBO / 2));
+      const colonna = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 1, 12), MERCURIO); colonna.position.x = 0; g.add(colonna);
+      const vuoto = etichetta('vuoto', 0.05 * k, '#5B6B7C'); vuoto.position.set(-0.09, PELO + 0.84, 0); g.add(vuoto);
+      const dito = BOX(0.04, 0.03, 0.04, '#E0B89A', 0, PELO - 0.045, 0); g.add(dito);
+      // Asta graduata accanto al tubo: da 690 a 810 mm sopra il pelo
+      const tex = Tavola.tela(128, 1024, (c) => {
+        c.fillStyle = '#FBFAF4'; c.fillRect(0, 0, 128, 1024); c.fillStyle = '#0B2545'; c.font = '700 40px Atkinson, sans-serif';
+        for (let mmv = 690; mmv <= 810; mmv += 2) {
+          const y = 1024 - ((mmv - 690) / 120) * 1024; const lunga = mmv % 10 === 0;
+          c.fillRect(0, y - 1.5, lunga ? 50 : 24, 3);
+          if (lunga && mmv > 690 && mmv < 810) c.fillText(String(mmv), 56, y + 14);
+        }
+      });
+      const asta = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.12), new THREE.MeshBasicMaterial({ map: tex }));
+      asta.position.set(0.045, PELO + 0.75, 0.001); g.add(asta);
+      g.add(segmento(new THREE.Vector3(0.02, PELO, 0), new THREE.Vector3(0.02, PELO + 0.69, 0), 0.0015, COL.medio));
+      // L'aria preme sul mercurio della vaschetta
+      const frecce = [-0.07, 0.07].map((x) => {
+        const f = new THREE.Group(); f.position.set(x, PELO + 0.005, 0.06);
+        const fusto = segmento(new THREE.Vector3(0, 0.025, 0), new THREE.Vector3(0, 0.12, 0), 0.004, COL.ocra); f.add(fusto);
+        const punta = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.025, 10), new THREE.MeshBasicMaterial({ color: COL.ocra })); punta.rotation.x = Math.PI; punta.position.y = 0.0125; f.add(punta);
+        g.add(f); return f;
+      });
+      const nomeAria = etichetta('pressione dell\'aria', 0.045 * k, '#8C7020'); nomeAria.position.set(0.3, PELO + 0.1, 0.06); g.add(nomeAria);
+      const nomeH = etichetta('h', 0.06 * k); nomeH.position.set(0.075, PELO + 0.4, 0); g.add(nomeH);
+      const presa = maniglia(0.02 * Math.sqrt(k), 'aria'); presa.position.set(0.12, PELO + 0.1, 0.06); g.add(presa); tocca(presa);
+      ba.copie.push({ colonna, vuoto, frecce, presa, dito });
+      return g;
+    },
+    trascina(id, dx, dy) {
+      if (!ba.capovolto) return;
+      const prima = ba.h;
+      ba.h = Math.max(712, Math.min(788, Math.round(ba.h + dy * 0.3)));
+      if (ba.h !== prima) { ba.vista = ba.h; posaBaro(); controllaBaro(); Motore.ridisegna(); }
+    },
+    // Tolto il dito, la colonna scende fino a fermarsi dove il suo peso equilibra l'aria
+    frame(dt) {
+      if (!ba.capovolto || ba.vista === ba.h) return false;
+      ba.vista = Math.abs(ba.vista - ba.h) < 0.5 ? ba.h : ba.vista + (ba.h - ba.vista) * (1 - Math.exp(-dt * 3));
+      posaBaro(); return true;
+    },
+  });
+  function comandiBaro(id) {
+    if (id === 'b:capovolgi') ba.capovolto = true;
+    if (id === 'b:annota' && ba.capovolto) ba.prima = ba.h;
+    controllaBaro(); posaBaro(); Motore.sporco();
+  }
+  // L'asta graduata ingrandita, con la cima della colonna
+  function scalaBaro(c, x, y, w, h) {
+    const da = 700; const a = 800; const Y = (mm) => y + h - 16 - ((mm - da) / (a - da)) * (h - 32);
+    const xt = x + w / 2 - 40;
+    c.strokeStyle = C.ink2; c.lineWidth = 3; c.strokeRect(xt, y, 40, h);
+    const top = Math.min(a + 8, ba.vista);
+    if (top >= da - 8) { c.fillStyle = '#A9B4BF'; c.fillRect(xt + 6, Math.max(y, Y(top)), 28, y + h - Math.max(y, Y(top))); }
+    c.fillStyle = C.ink; c.font = Pagina.font('n', 28); c.textAlign = 'right';
+    for (let mmv = da; mmv <= a; mmv += 10) { c.fillRect(xt - 30, Y(mmv) - 1.5, 26, 3); if (mmv % 20 === 0) c.fillText(String(mmv), xt - 40, Y(mmv) + 10); }
+    c.textAlign = 'left';
+    if (ba.capovolto) { c.font = Pagina.font('b', 32); c.fillText(`${ba.h} mmHg ≈ ${hpa(ba.h)} hPa`, xt + 60, Math.max(y + 30, Math.min(y + h - 10, Y(ba.h) + 10))); } else { c.font = Pagina.font('n', 30); c.fillText('tubo ancora pieno', xt + 60, y + 30); }
+  }
+
   /* Sezione del fronte freddo, dalla slide 65 */
   function sezioneFronte(c, x, y, w, h) {
     const f = s.fase; const suolo = y + h - 40; const testa = x + w * (0.2 + f * 0.33);
@@ -372,9 +478,31 @@
           { t: 'titolo', testo: 'Passa il fronte freddo' },
           { t: 'passo', id: 'f', nome: 'Momento', valore: FASI[s.fase] },
           { t: 'riquadro', size: 38, testo: `${TESTO_FASE[s.fase]} {{slide 65}}` },
-          ...lez.missioni().slice(3),
+          ...lez.missioni().slice(3, 4),
         ],
         dx: [...Lezione.finestra(540), { t: 'disegno', h: 380, fn: sezioneFronte }, { t: 'nota', testo: 'Trascina la sfera d\'oro: spingi avanti l\'aria fredda. Sezione schematica.' }],
+      },
+      {
+        passo: 2, azione: comandiBaro, mondo: creaBaro,
+        sx: [
+          { t: 'titolo', testo: 'Il barometro di Torricelli' },
+          ...(!ba.capovolto
+            ? [
+              { t: 'p', size: 38, testo: 'Un tubo pieno di mercurio, chiuso in cima, sta con la bocca nella vaschetta. {{slide 35}}' },
+              { t: 'bottoni', h: 84, size: 34, lista: [{ id: 'b:capovolgi', testo: 'Togli il dito: libera il tubo' }] },
+            ]
+            : [
+              { t: 'riquadro', size: 38, testo: `Colonna **${ba.h} mm** di mercurio: ${ba.h} × 4/3 ≈ **${hpa(ba.h)} hPa**.${ba.h === 760 ? ' È la pressione normale al livello del mare.' : ''} {{slide 36}}` },
+              { t: 'bottoni', h: 80, size: 32, lista: [{ id: 'b:annota', testo: ba.prima === null ? 'Annota la lettura' : `Annotata: ${hpa(ba.prima)} hPa` , on: ba.prima !== null }] },
+              ...(ba.prima !== null ? [{ t: 'p', size: 36, testo: testoTendenza() }] : []),
+            ]),
+          ...lez.missioni().slice(4),
+        ],
+        dx: [
+          ...Lezione.finestra(560, 'Punta la sfera d\'oro, tieni premuto il grilletto e muovi la mano in su o in giù.'),
+          { t: 'disegno', h: 420, fn: scalaBaro },
+          { t: 'nota', testo: 'Sfera d\'oro in giù: l\'aria preme di più e la colonna sale. P = ρ · g · h (slide 35). Tre ore tra le due letture: scegli tu la nuova pressione.' },
+        ],
       },
       {
         passo: 3, aletta: lez.fatto.aletta, richiede: lez.fatto.missioni, avviso: 'Se salti, niente bandiera.',

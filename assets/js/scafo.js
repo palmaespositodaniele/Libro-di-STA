@@ -56,13 +56,6 @@ window.Scafo = (function () {
     for (let i = 0; i <= 60; i++) { const u = i / 60; profilo.push(new THREE.Vector3(ascissa(u, fondo(u)), fondo(u), 0)); }
     for (let j = 1; j <= 8; j++) { const y = 3 + (j / 8) * (insellatura(1) - 3); profilo.push(new THREE.Vector3(ascissa(1, y), y, 0)); }
     g.add(tratto(profilo, 0.05 * k, 0x2A1A14));
-    // Alberi e picchi di carico
-    (nuda ? [] : [[38, 1], [52, 1], [68, -1]]).forEach(([x, v]) => {
-      const piede = new THREE.Vector3(x, 7.2, 0); const testa = new THREE.Vector3(x, 17, 0);
-      g.add(segmento(piede, testa, 0.17 * Math.sqrt(k), TINTE.albero));
-      g.add(segmento(new THREE.Vector3(x, 8.4, 0), new THREE.Vector3(x + v * 8.5, 13, 0), 0.08 * Math.sqrt(k), TINTE.albero));
-      g.add(segmento(testa, new THREE.Vector3(x + v * 8.5, 13, 0), 0.03 * k, 0x2A1A14));
-    });
     return Tavola.compatta(g);
   }
 

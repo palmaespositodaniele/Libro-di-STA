@@ -2,13 +2,15 @@
    slide 14, 15 e 31, formule dalle slide 11, 12, 22, 30. La plancia disegnata è schematica */
 (function () {
   const N = 17;
-  const { COL, tela, etichetta, pedana, segmento, scatola } = Tavola;
+  const { COL, tela, etichetta, pedana, segmento, scatola, maniglia } = Tavola;
   const { C } = Pagina;
 
   const MISSIONI = [
     { id: 'luoghi', testo: 'Confronta Roma e New York: quanto vale d?' },
     { id: 'ferri', testo: 'Togli e rimetti i ferri: dove va il nord bussola?' },
     { id: 'esempio', testo: 'Esempio della slide 31: Pb = 150°. Quanto vale Pv?' },
+    { id: 'cardinali', testo: 'Primo giro: annota δ a 000°, 090°, 180° e 270°.' },
+    { id: 'giro', testo: 'Completa il giro ogni 45° e confronta con la tabella.' },
   ];
   const CALCOLI = [
     { n: 1, testo: 'Declinazione all\'anno in corso: 3°10\' E nel 2015, 8\' E all\'anno. Valore per il 2020?', campi: [['gradi', 3, 0.01, '°'], ['primi', 50, 0.01, '\' E']], soluzione: '8\' × 5 = 40\', da sommare perché verso E: d = 3°50\' E' },
@@ -246,6 +248,77 @@
     disegnaLente();
   }
 
+  /* Giro di bussola (slide 29): la nave ruota in porto, il GPS dà Pv, si annota δ = Pm − Pb.
+     δ viene dalla tabella della slide 25; d = 4° E, Roma nel 2026 (slide 14) */
+  const D_GIRO = 4;
+  const ga = { pb: 0, vista: 0, resto: 0, note: new Map(), copie: [] };
+  const pvGiro = () => ga.pb + deviazione(ga.pb) + D_GIRO;
+  function posaGiro() {
+    const r = ((90 - (ga.vista + deviazione(ga.vista) + D_GIRO)) * Math.PI) / 180; // sulla rosa la nave sta a Pv
+    ga.copie.forEach((c) => { c.perno.rotation.y = r; });
+  }
+  const creaGiro = Lezione.simula({
+    scala: 0.006, centro: [0, 4], k: 5, pedana: [0, 70, 'sulla banchina'], dopo: posaGiro,
+    vista: () => ({ target: new THREE.Vector3(0, 0, -30), theta: 0.3, phi: 0.62, r: 340 }),
+    modello(k, tocca) {
+      const g = new THREE.Group();
+      const rosa = new THREE.Mesh(new THREE.CircleGeometry(80, 96), new THREE.MeshBasicMaterial({ map: texRosa(), transparent: true, opacity: 0.9, depthWrite: false }));
+      rosa.rotation.x = -Math.PI / 2; rosa.position.y = 0.2; g.add(rosa);
+      // Nord vero e nord magnetico, fuori dalla rosa
+      const freccia = (ang, col, nome, colNome, alto) => {
+        const a = (ang * Math.PI) / 180; const fine = new THREE.Vector3(118 * Math.sin(a), 0.5, -118 * Math.cos(a));
+        g.add(segmento(new THREE.Vector3(84 * Math.sin(a), 0.5, -84 * Math.cos(a)), fine, 1.3 * Math.sqrt(k), col));
+        const e = etichetta(nome, 14 + k, colNome); e.position.copy(fine).add(new THREE.Vector3(0, alto, 0)); g.add(e);
+      };
+      freccia(0, COL.ocra, 'Nv', '#8C7020', 6);
+      freccia(D_GIRO, COL.medio, 'Nm', '#5B6B7C', 16);
+      const perno = new THREE.Group(); const nave = Scafo.crea(k); nave.position.set(-45, -6, 0); perno.add(nave);
+      perno.add(segmento(new THREE.Vector3(45, 1, 0), new THREE.Vector3(70, 1, 0), 0.6 * Math.sqrt(k), COL.rosso)); // linea di prora
+      const presa = maniglia(2.6 * Math.sqrt(k), 'giro'); presa.position.set(30, 14, 0); perno.add(presa); tocca(presa);
+      g.add(perno);
+      ga.copie.push({ perno });
+      return g;
+    },
+    trascina(id, dx) {
+      ga.resto += dx / 60;
+      const n = Math.trunc(ga.resto); if (!n) return;
+      ga.resto -= n; comandiGiro(n > 0 ? 'gp+' : 'gp-'); Motore.ridisegna();
+    },
+    frame(dt) {
+      if (ga.vista === ga.pb) return false;
+      let diff = ga.pb - ga.vista; if (diff > 180) diff -= 360; if (diff < -180) diff += 360;
+      ga.vista = Math.abs(diff) < 0.3 ? ga.pb : ga.vista + diff * (1 - Math.exp(-dt * 3));
+      posaGiro(); return true;
+    },
+  });
+  function comandiGiro(id) {
+    if (id === 'gp+') ga.pb = norm(ga.pb + 45);
+    if (id === 'gp-') ga.pb = norm(ga.pb - 45);
+    if (id === 'g:annota') ga.note.set(ga.pb, deviazione(ga.pb));
+    if ([0, 90, 180, 270].every((p) => ga.note.has(p))) lez.completa('cardinali');
+    if (ga.note.size === 8) lez.completa('giro');
+    Motore.sporco();
+  }
+  // Curva delle deviazioni: punti annotati; a giro finito, la curva della tabella per confronto
+  function curvaGiro(c, x, y, w, h) {
+    const x0 = x + 70; const lw = w - 90; const X = (p) => x0 + (p / 360) * lw; const Y = (d) => y + h / 2 - 20 - (d / 9) * (h / 2 - 40);
+    c.strokeStyle = C.ink2; c.lineWidth = 2; c.beginPath(); c.moveTo(x0, Y(0)); c.lineTo(x0 + lw, Y(0)); c.moveTo(x0, Y(9)); c.lineTo(x0, Y(-9)); c.stroke();
+    c.fillStyle = C.ink; c.font = Pagina.font('n', 26); c.textAlign = 'center';
+    for (let p = 0; p <= 360; p += 90) c.fillText(String(p).padStart(3, '0'), X(p), Y(-9) + 30);
+    c.textAlign = 'right'; [[6, '6° E'], [0, '0°'], [-6, '6° W']].forEach(([d, t]) => c.fillText(t, x0 - 10, Y(d) + 9));
+    c.textAlign = 'left';
+    if (ga.note.size === 8) {
+      c.strokeStyle = C.ocra; c.lineWidth = 3; c.setLineDash([10, 8]); c.beginPath();
+      for (let p = 0; p <= 360; p += 15) { const v = deviazione(p); if (p === 0) c.moveTo(X(p), Y(v)); else c.lineTo(X(p), Y(v)); }
+      c.stroke(); c.setLineDash([]);
+      c.fillStyle = C.ocraT; c.fillText('tabella della slide 25', x0 + 10, y + 26);
+    }
+    c.fillStyle = C.ink;
+    ga.note.forEach((v, p) => { c.beginPath(); c.arc(X(p), Y(v), 9, 0, Math.PI * 2); c.fill(); });
+    c.fillStyle = C.rosso; c.beginPath(); c.arc(X(ga.pb), Y(deviazione(ga.pb)), 5, 0, Math.PI * 2); c.fill();
+    c.fillStyle = C.ink2; c.font = Pagina.font('n', 26); c.textAlign = 'right'; c.fillText(`δ annotate: ${ga.note.size} su 8`, x0 + lw, y + 26); c.textAlign = 'left';
+  }
+
   const righeDev = (da, a) => [['Pb', 'δ'], ...DEV.slice(da, a).map((v, i) => [`${String((da + i) * 15).padStart(3, '0')}°`, `${num(Math.abs(v))}° ${v >= 0 ? 'E' : 'W'}`])];
 
   lez.registra(() => {
@@ -290,7 +363,7 @@
           { t: 'bottoni', h: 84, size: 32, lista: [{ id: 'f:si', testo: 'Con i ferri di bordo', on: s.ferri }, { id: 'f:no', testo: 'Senza ferri', on: !s.ferri }] },
           { t: 'formula', testo: `Pm = Pb + δ = ${prora(pm)}` },
           { t: 'formula', testo: `Pv = Pm + d = ${prora(pv)}` },
-          ...lez.missioni(),
+          ...lez.missioni().slice(0, 3),
         ],
         dx: [
           {
@@ -304,6 +377,22 @@
             : { t: 'bottoni', h: 76, size: 34, lista: [{ id: 'v:bussola', testo: 'Bussola', on: s.vista === 'bussola' }, { id: 'v:plancia', testo: 'Plancia', on: s.vista === 'plancia' }] },
           { t: 'zona', id: 'lente', h: 300 },
           { t: 'nota', testo: 'Tira di lato la sfera d\'oro: accosta e guarda girare la rosa. Tabella δ: slide 25. Plancia schematica.' },
+        ],
+      },
+      {
+        passo: 2, mondo: creaGiro, azione: comandiGiro,
+        sx: [
+          { t: 'titolo', testo: 'Giro di bussola' },
+          { t: 'p', size: 34, testo: 'In porto a Roma (d = 4° E), la nave si mette su prore diverse. Il GPS dà la prora vera: da lì si ricava δ. {{slide 14, 29}}' },
+          { t: 'passo', id: 'gp', nome: 'Prora bussola Pb', valore: prora(ga.pb) },
+          { t: 'riquadro', size: 34, testo: `Pv (GPS) = ${prora(pvGiro())} → Pm = Pv − d = ${prora(pvGiro() - D_GIRO)} → **δ = Pm − Pb = ${angolo(deviazione(ga.pb))}** {{slide 30}}` },
+          { t: 'bottoni', h: 80, size: 32, lista: [{ id: 'g:annota', testo: ga.note.has(ga.pb) ? 'Già annotata' : 'Annota δ a questa prora', on: ga.note.has(ga.pb) }] },
+          ...lez.missioni().slice(3),
+        ],
+        dx: [
+          ...Lezione.finestra(520, 'Tira di lato la sfera d\'oro: la nave accosta di 45° alla volta.'),
+          { t: 'disegno', h: 400, fn: curvaGiro },
+          { t: 'nota', testo: 'Tira di lato la sfera d\'oro: la nave accosta di 45°. I valori di δ sono quelli della tabella della slide 25.' },
         ],
       },
       {

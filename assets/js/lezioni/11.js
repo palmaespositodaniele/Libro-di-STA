@@ -10,6 +10,8 @@
     { id: 'ferma', testo: 'A nave ferma, metti barra: che cosa succede?' },
     { id: 'stallo', testo: 'A velocità alta confronta 30° e 40° di barra.' },
     { id: 'becker', testo: 'Confronta timone normale e timone Becker.' },
+    { id: 'saluto', testo: 'Prova di evoluzione: guarda da che lato si inclina la nave.' },
+    { id: 'confronta', testo: 'Ripeti la prova con 15°, 25° e 35° di barra.' },
   ];
   const QUIZ = [
     { n: 1, testo: 'La componente trasversale della forza sul timone è…', scelte: ['X = F · sin α', 'Y = F · cos α', 'MT = F · GC'], giusta: 1, perche: 'Y = F · cos α fa ruotare la nave intorno a un asse verticale.' },
@@ -222,6 +224,97 @@
     disegnaLente();
   }
 
+  /* Prova di evoluzione: barra a dritta e giro completo. Prima lo sbandamento di saluto sul lato
+     dell'accostata, poi l'inclinazione dal lato opposto (slide 15, 16). Valori schematici */
+  const ev = { alfa: 35, corre: false, t: 0, psi: 0, x: 0, y: 0, fi: 0, punti: [], sbando: [], tracce: {}, ridis: 0, copie: [] };
+  const rotEvo = (t) => 0.55 * efficacia(ev.alfa, 'normale') * (1 - Math.exp(-t / 1.5));
+  const fiEvo = (t) => 3.2 * (ev.alfa / 35) * Math.exp(-((t - 0.9) ** 2) / 0.35) - 5 * (rotEvo(t) / 0.55); // + = dritta
+  function faseEvo() {
+    if (!ev.corre && !ev.punti.length) return 'Scegli la barra e premi Via. Nave a velocità costante, accostata a dritta.';
+    if (ev.corre && ev.t < 1.8) return '**Sbandamento di saluto**: appena messa la barra, la nave si inclina sul lato dell\'accostata, a dritta. {{slide 15}}';
+    if (ev.corre) return 'Durante l\'evoluzione la nave si inclina **dal lato opposto**, a sinistra, per la forza centrifuga. {{slide 16}}';
+    return `Giro completo con ${ev.alfa}° di barra. Prima a dritta (saluto), poi a sinistra per tutta l'evoluzione. {{slide 15, 16}}`;
+  }
+  function posaEvo() {
+    ev.copie.forEach((c) => {
+      c.rollio.rotation.x = rad(ev.fi * 2); // inclinazione raddoppiata per vederla
+      c.t.pala.rotation.y = ev.corre || ev.punti.length ? rad(ev.alfa) : 0;
+    });
+  }
+  const creaEvo = Lezione.simula({
+    scala: 0.009, centro: [0, 2], k: 4, pedana: [-80, 0, 'a poppa'], dopo: posaEvo,
+    vista: () => ({ target: new THREE.Vector3(0, 4, 0), theta: -1.4, phi: 1.38, r: 120 }),
+    modello(k) {
+      const g = new THREE.Group(); const rollio = new THREE.Group();
+      const scafo = Scafo.crea(k); scafo.position.set(-L / 2, -6, 0);
+      const t = timone(k); t.g.position.set(-L / 2 - 1.6, -6, 0);
+      rollio.add(scafo, t.g); g.add(rollio);
+      const dr = etichetta('dritta', 5 + k, '#0B2545'); dr.position.set(-L / 2 - 4, 4, 22); g.add(dr);
+      const si = etichetta('sinistra', 5 + k, '#0B2545'); si.position.set(-L / 2 - 4, 4, -22); g.add(si);
+      ev.copie.push({ rollio, t });
+      return g;
+    },
+    frame(dt) {
+      if (!ev.corre) return false;
+      const passo = Math.min(0.05, dt) * 1.6;
+      ev.t += passo; const r = rotEvo(ev.t);
+      ev.psi += r * passo; ev.x += Math.sin(ev.psi) * passo; ev.y += Math.cos(ev.psi) * passo;
+      ev.fi = fiEvo(ev.t);
+      ev.punti.push([ev.x, ev.y]); ev.sbando.push([ev.t, ev.fi]);
+      if (ev.psi >= Math.PI * 2) {
+        ev.corre = false; ev.tracce[ev.alfa] = ev.punti.slice();
+        lez.completa('saluto');
+        if ([15, 25, 35].every((a) => ev.tracce[a])) lez.completa('confronta');
+        Motore.ridisegna();
+      } else if ((ev.ridis += dt) > 0.25) { ev.ridis = 0; Motore.ridisegna(); }
+      posaEvo(); return true;
+    },
+  });
+  function comandiEvo(id) {
+    if (ev.corre) return;
+    if (/^ev:\d+$/.test(id)) ev.alfa = Number(id.slice(3));
+    if (id === 'ev:via') Object.assign(ev, { corre: true, t: 0, psi: 0, x: 0, y: 0, fi: 0, punti: [], sbando: [] });
+    posaEvo(); Motore.sporco();
+  }
+  const TINTA_EVO = { 15: C.ink2, 25: C.acqua, 35: C.ocra };
+  // Tracce viste dall'alto: partenza in basso, prua verso l'alto, accostata a dritta
+  function tracceEvo(c, x, y, w, h) {
+    // Riquadro fissato sulla curva più larga, quella con 15° di barra
+    if (!ev.limiti) {
+      const a0 = ev.alfa; ev.alfa = 15; let t = 0; let psi = 0; let px = 0; let py = 0; const b = [0, 0, 0, 0];
+      while (psi < Math.PI * 2) { t += 0.08; psi += rotEvo(t) * 0.08; px += Math.sin(psi) * 0.08; py += Math.cos(psi) * 0.08; b[0] = Math.min(b[0], px); b[1] = Math.max(b[1], px); b[2] = Math.min(b[2], py); b[3] = Math.max(b[3], py); }
+      ev.alfa = a0; ev.limiti = b;
+    }
+    const [mx, Mx, my, My] = ev.limiti;
+    const k = Math.min((w - 120) / (Mx - mx), (h - 70) / (My - my));
+    const X0 = x + 60 - mx * k; const Y0 = y + h - 40 + my * k;
+    const P = ([px, py]) => [X0 + px * k, Y0 - py * k];
+    c.fillStyle = C.ink2; c.font = Pagina.font('n', 26); c.textAlign = 'right'; c.fillText('vista dall\'alto, partenza dal punto in basso a sinistra', x + w - 10, y + h - 6); c.textAlign = 'left';
+    const linea = (pts, col, sp) => { c.strokeStyle = col; c.lineWidth = sp; c.beginPath(); pts.forEach((p, i) => { const [a, b] = P(p); if (i) c.lineTo(a, b); else c.moveTo(a, b); }); c.stroke(); };
+    Object.keys(ev.tracce).forEach((a) => {
+      linea(ev.tracce[a], TINTA_EVO[a], 5);
+      const [lx, ly] = P(ev.tracce[a].reduce((m, p) => (p[0] > m[0] ? p : m)));
+      c.fillStyle = TINTA_EVO[a]; c.font = Pagina.font('b', 30); c.fillText(`${a}°`, lx + 12, ly);
+    });
+    if (ev.corre) {
+      linea(ev.punti, C.rosso, 6);
+      const [a, b] = P(ev.punti[ev.punti.length - 1] || [0, 0]); c.fillStyle = C.rosso; c.beginPath(); c.arc(a, b, 10, 0, Math.PI * 2); c.fill();
+    }
+  }
+  // Sbandamento nel tempo: sopra lo zero a dritta, sotto a sinistra
+  function graficoSbando(c, x, y, w, h) {
+    const x0 = x + 120; const lw = w - 140; const X = (t) => x0 + (t / 30) * lw; const Y = (f) => y + h / 2 - (f / 6) * (h / 2 - 20);
+    c.strokeStyle = C.ink2; c.lineWidth = 2; c.beginPath(); c.moveTo(x0, Y(0)); c.lineTo(x0 + lw, Y(0)); c.moveTo(x0, y + 10); c.lineTo(x0, y + h - 10); c.stroke();
+    c.fillStyle = C.ink2; c.font = Pagina.font('n', 26); c.textAlign = 'right';
+    c.fillText('a dritta', x0 - 10, Y(4)); c.fillText('a sinistra', x0 - 10, Y(-4)); c.textAlign = 'left';
+    c.fillText('tempo →', x0 + lw - 110, Y(0) + 30);
+    if (!ev.sbando.length) return;
+    c.strokeStyle = C.ink; c.lineWidth = 5; c.beginPath();
+    ev.sbando.forEach(([t, f], i) => { if (t > 30) return; if (i) c.lineTo(X(t), Y(f)); else c.moveTo(X(t), Y(f)); });
+    c.stroke();
+    c.fillStyle = C.ink; c.font = Pagina.font('b', 26); c.fillText('saluto', X(0.9) + 8, Y(3.2 * (ev.alfa / 35) - 1) - 6);
+  }
+
   lez.registra(() => {
     const p = Libro.stato(N).prevedi;
     const vr = Motore.presente(); const vera = vr && Motore.scalaVera();
@@ -267,7 +360,7 @@
           { t: 'bottoni', h: 84, size: 32, lista: [{ id: 't:normale', testo: 'Timone normale', on: s.tipo === 'normale' }, { id: 't:becker', testo: 'Timone Becker', on: s.tipo === 'becker' }] },
           { t: 'bottoni', h: 84, size: 32, lista: [{ id: 'a0', testo: 'Barra al centro' }, { id: 'scia', testo: 'Cancella la scia' }] },
           { t: 'riquadro', size: 36, testo: giudizio },
-          ...lez.missioni(),
+          ...lez.missioni().slice(0, 3),
           { t: 'nota', testo: 'Tira di lato la sfera d\'oro a poppa: metti barra.' },
         ],
         dx: [
@@ -280,6 +373,22 @@
           ...(vr ? [{ t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []),
           { t: 'zona', id: 'lente', h: 400 },
           { t: 'nota', testo: 'Traiettoria schematica' },
+        ],
+      },
+      {
+        passo: 2, mondo: creaEvo, azione: comandiEvo,
+        sx: [
+          { t: 'titolo', testo: 'Prova di evoluzione' },
+          { t: 'bottoni', h: 84, size: 32, lista: [15, 25, 35].map((a) => ({ id: `ev:${a}`, testo: `${a}° a dritta`, on: ev.alfa === a, off: ev.corre })) },
+          { t: 'bottoni', h: 80, size: 32, lista: [{ id: 'ev:via', testo: ev.corre ? 'Prova in corso…' : 'Via: metti la barra', on: !ev.corre, off: ev.corre }] },
+          { t: 'riquadro', size: 34, testo: faseEvo() },
+          { t: 'disegno', h: 250, fn: graficoSbando },
+          ...lez.missioni().slice(3),
+        ],
+        dx: [
+          ...Lezione.finestra(470, 'Guarda la nave da poppa mentre accosta.'),
+          { t: 'disegno', h: 440, fn: tracceEvo },
+          { t: 'nota', testo: 'Vista da poppa: la telecamera segue la nave. Le slide non danno valori: curve e inclinazioni sono schematiche.' },
         ],
       },
       {

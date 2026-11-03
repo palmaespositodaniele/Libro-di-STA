@@ -19,6 +19,9 @@ window.Motore = (function () {
   const rig = new THREE.Group();
   rig.add(camera);
   scene.add(rig);
+  // Nel visore libro e modellino stanno in una postazione che si può ricentrare davanti a chi guarda
+  const postazione = new THREE.Group();
+  rig.add(postazione);
 
   /* Tavolo da carteggio, solo su schermo */
   const tavolo = new THREE.Group();
@@ -34,7 +37,7 @@ window.Motore = (function () {
   scene.add(stanza);
   const sostegno = Ambiente.leggio();
   [sostegno.tavola, sostegno.zeppe, sostegno.banco, sostegno.colonna, sostegno.fascio].forEach((o) => { o.visible = false; });
-  rig.add(sostegno.banco, sostegno.colonna, sostegno.fascio);
+  postazione.add(sostegno.banco, sostegno.colonna, sostegno.fascio);
 
   /* Libro ---------------------------------------------------------------- */
   const libro = new THREE.Group();
@@ -209,10 +212,12 @@ window.Motore = (function () {
       return { bottoni: b };
     }
     const prossimo = lista[idx + 1];
-    if (!prossimo) return { bottoni: [] };
+    // Nel visore c'è sempre il tasto per ricentrarsi
+    const ricentro = renderer.xr.isPresenting ? [{ id: 'ricentra', testo: 'Ricentra' }] : [];
+    if (!prossimo) return { bottoni: ricentro };
     // Un passaggio non fatto non blocca: si può saltare, ma senza bandiera
     const puo = !prossimo.richiede || prossimo.richiede();
-    return { bottoni: [{ id: 'avanti', testo: puo ? 'Avanti ▶' : 'Salta ▶', on: puo }], avviso: puo ? '' : prossimo.avviso };
+    return { bottoni: [{ id: 'avanti', testo: puo ? 'Avanti ▶' : 'Salta ▶', on: puo }, ...ricentro], avviso: puo ? '' : prossimo.avviso };
   }
 
   function dipingi(dest, sp) {
@@ -360,6 +365,7 @@ window.Motore = (function () {
     if (id === 'indietro') { if (idx > 0) vai(sez, idx - 1, false); return; }
     if (id === 'indice') { vai(sezioni.indice, 0, false); return; }
     if (id === 'esci-vr') { const s = renderer.xr.getSession(); if (s) s.end(); return; }
+    if (id === 'ricentra') { ricentra(); return; }
     if (id === 'vr:scala') { vrScala = vrScala === 'vera' ? 'modello' : 'vera'; impostaVR(); ridisegna(); return; }
     if (id.startsWith('sez:')) { const [, nome, n] = id.split(':'); vai(sezioni[nome], Number(n || 0)); return; }
     if (spread.azione) spread.azione(id);
@@ -463,14 +469,14 @@ window.Motore = (function () {
 
   const modellino = new THREE.Group();
   modellino.visible = false;
-  rig.add(modellino);
+  postazione.add(modellino);
   const presa = new THREE.Mesh(new THREE.SphereGeometry(0.66, 16, 12), new THREE.MeshBasicMaterial());
   presa.scale.y = 0.42; presa.visible = false;
-  rig.add(presa);
+  postazione.add(presa);
   const anello = new THREE.Mesh(new THREE.RingGeometry(0.72, 0.74, 64), new THREE.MeshBasicMaterial({ color: COL.ocra, side: THREE.DoubleSide }));
   anello.rotation.x = -Math.PI / 2; anello.visible = false;
-  rig.add(anello);
-  const POS_MODELLO = { z: -1.02, sopra: 0.5 };
+  postazione.add(anello);
+  const POS_MODELLO = { z: -1.3, sopra: 0.4 };
   const POGGIO = 0.29; // dal centro del libro al piano del tavolo
   let salita = 0; let tieni = null;
   const qMano = new THREE.Quaternion(); const qGiro = new THREE.Quaternion();
@@ -478,8 +484,46 @@ window.Motore = (function () {
   const QL = (y) => new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.95, y, 0, 'YXZ'));
   let pedane = []; let daCentrare = false; let salto = null;
 
+  // Il modellino si sposta: tasto laterale per prenderlo, levetta per allontanarlo e girarlo.
+  // Lo spostamento resta salvato e vale per tutte le lezioni
+  const spostaMod = new THREE.Vector3();
+  const salvato = Libro.stato('vr').mod;
+  if (Array.isArray(salvato)) spostaMod.fromArray(salvato);
+  const salvaSposta = () => Libro.aggiorna('vr', { mod: spostaMod.toArray().map((v) => Math.round(v * 1000) / 1000) });
+  function limitaSposta() {
+    spostaMod.x = Math.max(-1.6, Math.min(1.6, spostaMod.x));
+    const y = leggio.altezza + POS_MODELLO.sopra;
+    spostaMod.y = Math.max(0.35 - y, Math.min(2.3 - y, spostaMod.y));
+    spostaMod.z = Math.max(-3.2 - POS_MODELLO.z, Math.min(-0.5 - POS_MODELLO.z, spostaMod.z));
+  }
+  let afferra = null; let daSalvare = false;
+  const vMano = new THREE.Vector3(); const assey = new THREE.Vector3(0, 1, 0); const qLeva = new THREE.Quaternion();
+  const manoNelRig = (c, v) => postazione.worldToLocal(v.setFromMatrixPosition(c.matrixWorld));
+
+  // Ricentra: libro e modellino tornano davanti a chi guarda, ovunque si sia girato o spostato.
+  // A grandezza vera si torna anche sulla pedana, con lo sguardo della pedana
+  let stazioneAtt = null;
+  const eulero = new THREE.Euler();
+  function ricentra() {
+    if (!renderer.xr.isPresenting || salto) return;
+    salto = {
+      tempo: 0, fatto: false,
+      azione: () => {
+        eulero.setFromQuaternion(camera.quaternion, 'YXZ');
+        if (leggio.modo === 'vera' && stazioneAtt) {
+          const yaw = stazioneAtt.yaw - eulero.y;
+          const p = new THREE.Vector3(camera.position.x, 0, camera.position.z).applyAxisAngle(assey, yaw);
+          rig.position.copy(stazioneAtt.pos).sub(p); rig.rotation.set(0, yaw, 0);
+        }
+        postazione.position.set(camera.position.x, 0, camera.position.z); postazione.rotation.set(0, eulero.y, 0);
+        spostaMod.set(0, 0, 0); salvaSposta();
+        daCentrare = true;
+      },
+    };
+  }
+
   let mondoInScena = null;
-  function posa(s) { rig.position.copy(s.pos); rig.rotation.set(0, s.yaw, 0); }
+  function posa(s) { stazioneAtt = s; rig.position.copy(s.pos); rig.rotation.set(0, s.yaw, 0); }
   function applicaModo(modo) {
     const vera = modo === 'vera';
     leggio.modo = modo;
@@ -504,6 +548,7 @@ window.Motore = (function () {
       if (mondo) mondoScena.add(mondo.radice);
       rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0);
     }
+    afferra = null;
     stanza.visible = !vera;
     sostegno.zeppe.visible = !vera; sostegno.banco.visible = !vera; sostegno.colonna.visible = vera;
     sostegno.fascio.visible = modo === 'modello';
@@ -566,8 +611,15 @@ window.Motore = (function () {
     manico.rotation.x = -Math.PI / 2; manico.position.z = -0.03;
     c.add(manico);
     c.visible = false;
-    c.addEventListener('connected', () => { c.visible = true; });
-    c.addEventListener('disconnected', () => { c.visible = false; });
+    c.addEventListener('connected', (e) => { c.visible = true; c.userData.fonte = e.data; });
+    c.addEventListener('disconnected', () => { c.visible = false; c.userData.fonte = null; });
+    // Tasto laterale: si prende il modellino e lo si porta dove si vuole
+    c.addEventListener('squeezestart', () => {
+      if (!modellino.visible || salita < 1) return;
+      c.updateMatrixWorld(true);
+      afferra = { c, da: manoNelRig(c, new THREE.Vector3()), base: spostaMod.clone() };
+    });
+    c.addEventListener('squeezeend', () => { if (afferra && afferra.c === c) { afferra = null; salvaSposta(); } });
     c.addEventListener('selectstart', () => {
       c.updateMatrixWorld(true); // la posizione di questo istante, non del fotogramma prima
       const h = colpoVR(c);
@@ -613,9 +665,10 @@ window.Motore = (function () {
   renderer.xr.addEventListener('sessionstart', () => {
     scene.remove(tavolo);
     scene.background = new THREE.Color(COL.carta);
-    rig.add(libro);
+    postazione.add(libro);
     interno.position.x = 0;
     leggio.modo = 'libro'; leggio.altezza = 1.05; vrScala = 'modello';
+    postazione.position.set(0, 0, 0); postazione.rotation.set(0, 0, 0); rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0);
     leggio.pos.set(0, 1.05, -0.78); leggio.rot.copy(QL(0));
     libro.position.copy(leggio.pos); libro.quaternion.copy(leggio.rot);
     camera.position.set(0, 0, 0); camera.rotation.set(0, 0, 0);
@@ -640,6 +693,25 @@ window.Motore = (function () {
     ridimensiona();
     ridisegna();
   });
+
+  // Levetta: avanti e indietro allontana o avvicina il modellino, di lato lo gira; premuta, ricentra
+  function leve(dt) {
+    let mossa = false;
+    controller.forEach((v) => {
+      const f = v.c.userData.fonte; const g = f && f.gamepad;
+      if (!g) return;
+      const ax = g.axes.length >= 4 ? [g.axes[2], g.axes[3]] : [g.axes[0] || 0, g.axes[1] || 0];
+      if (modellino.visible && !afferra && salita >= 1) {
+        if (Math.abs(ax[1]) > 0.25) { spostaMod.z += ax[1] * dt * 0.9; limitaSposta(); mossa = true; }
+        if (Math.abs(ax[0]) > 0.25) modellino.quaternion.premultiply(qLeva.setFromAxisAngle(assey, -ax[0] * dt * 1.6));
+      }
+      const premuta = !!(g.buttons[3] && g.buttons[3].pressed);
+      if (premuta && !v.levaPremuta) ricentra();
+      v.levaPremuta = premuta;
+    });
+    if (mossa) daSalvare = true;
+    else if (daSalvare) { daSalvare = false; salvaSposta(); }
+  }
 
   /* Ciclo --------------------------------------------------------------------- */
   const orologio = new THREE.Clock();
@@ -689,14 +761,23 @@ window.Motore = (function () {
       sostegno.banco.position.set(0, 0, leggio.pos.z - 0.2);
       sostegno.banco.scale.y = Math.max(0.2, leggio.altezza - POGGIO);
       // Il modellino si alza piano dalla pagina; poi si gira tenendo il grilletto e ruotando la mano
+      if (afferra) {
+        // La mano porta il modellino; un po' più del gesto, per arrivare lontano senza camminare
+        spostaMod.copy(afferra.base).addScaledVector(manoNelRig(afferra.c, vMano).sub(afferra.da), 1.6);
+        limitaSposta();
+      }
+      leve(dt);
       const yMod = leggio.altezza + POS_MODELLO.sopra;
       if (modellino.visible) {
         salita = Math.min(1, salita + dt / 1.4);
         const e = salita * salita * (3 - 2 * salita);
+        const s = spostaMod;
         modellino.scale.setScalar(0.15 + 0.85 * e);
-        modellino.position.set(0, leggio.altezza + 0.04 + (POS_MODELLO.sopra - 0.04) * e, -0.7 + (POS_MODELLO.z + 0.7) * e);
-        presa.position.set(0, yMod, POS_MODELLO.z);
-        anello.position.set(0, yMod - 0.12, POS_MODELLO.z);
+        modellino.position.set(s.x * e, leggio.altezza + 0.04 + (POS_MODELLO.sopra - 0.04 + s.y) * e, -0.7 + (POS_MODELLO.z + s.z + 0.7) * e);
+        presa.position.set(s.x, yMod + s.y, POS_MODELLO.z + s.z);
+        anello.position.set(s.x, yMod + s.y - 0.12, POS_MODELLO.z + s.z);
+        // Il fascio di luce esce dal libro: si spegne se il modellino è stato portato altrove
+        sostegno.fascio.visible = s.lengthSq() < 0.0225;
         sostegno.fascio.position.set(0, leggio.altezza + 0.02 + (POS_MODELLO.sopra / 2) * e, -0.7 + (POS_MODELLO.z + 0.7) * e * 0.6);
         sostegno.fascio.scale.set(0.2 + 0.8 * e, Math.max(0.02, POS_MODELLO.sopra * e), 0.2 + 0.8 * e);
       }

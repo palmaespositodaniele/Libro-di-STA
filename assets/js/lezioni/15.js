@@ -8,6 +8,9 @@
     { id: 'ins', testo: 'Inseguimento: fai raggiungere A da B.' },
     { id: 'col', testo: 'Collisione: trova l\'ora dell\'incontro.' },
     { id: 'mai', testo: 'Inseguimento: quando B non raggiunge mai A?' },
+    { id: 'es15', testo: 'Sulla carta, verifica l\'esercizio 15.' },
+    { id: 'es16', testo: 'Sulla carta, verifica l\'esercizio 16.' },
+    { id: 'incrocio', testo: 'Rotte che si incrociano: trova la rotta di collisione di B.' },
   ];
   const ANG = 1; const OPE = 2; const REL = 3; const ROT = 4;
   const dms = (a, b, c) => [['gradi', a, 0.0001], ['primi', b, 0.0001], ['secondi', c, 0.0001]];
@@ -144,6 +147,111 @@
     return `Ore ${ora(s.t)}. Distanza tra le navi: ${num(Math.abs(b - a))} NM.`;
   }
 
+  /* Carteggio: le navi su una carta, con rotta e velocità. Esercizi 15 e 16 dalle slide 35-36;
+     le rotte che si incrociano sono un esempio della slide 33, senza dati nelle slide */
+  const PROVE = {
+    es15: { nome: 'Esercizio 15', ora0: 6, testo: 'A parte alle 06:00 a 10 kn per 090°. B parte dallo stesso porto alle 08:00 a 15 kn. {{slide 35}}', A: { p: [10, 33], r: 90, v: 10, t0: 0 }, B: { p: [10, 33], r: 90, v: 15, t0: 2 } },
+    es16: { nome: 'Esercizio 16', ora0: 8, testo: 'Alle 08:00 le navi sono a 75 NM: A a 14 kn per 090°, B a 16 kn per 270°. {{slide 35}}', A: { p: [10, 33], r: 90, v: 14, t0: 0 }, B: { p: [85, 33], r: 270, v: 16, t0: 0 } },
+    libere: { nome: 'Rotte incrociate', ora0: 8, A: { p: [10, 20], r: 45, v: 10, t0: 0 }, B: { p: [70, 10], v: 12, t0: 0 } },
+  };
+  const ct = { prova: 'es15', rb: 0, t: 0, corre: false, finito: false, resto: 0 };
+  const navi = () => { const pr = PROVE[ct.prova]; return [pr.A, { ...pr.B, r: pr.B.r === undefined ? ct.rb : pr.B.r }]; };
+  const dove = (n, t) => { const u = Math.max(0, t - n.t0); const a = (n.r * Math.PI) / 180; return [n.p[0] + n.v * u * Math.sin(a), n.p[1] + n.v * u * Math.cos(a)]; };
+  // Minima distanza dopo la partenza di entrambe: t = −(Δp · Δv) / |Δv|²
+  function minimo() {
+    const [A, B] = navi(); const t0 = Math.max(A.t0, B.t0);
+    const pa = dove(A, t0); const pb = dove(B, t0);
+    const va = [A.v * Math.sin((A.r * Math.PI) / 180), A.v * Math.cos((A.r * Math.PI) / 180)];
+    const vb = [B.v * Math.sin((B.r * Math.PI) / 180), B.v * Math.cos((B.r * Math.PI) / 180)];
+    const dp = [pb[0] - pa[0], pb[1] - pa[1]]; const dv = [vb[0] - va[0], vb[1] - va[1]];
+    const q = dv[0] ** 2 + dv[1] ** 2; const u = q ? Math.max(0, -(dp[0] * dv[0] + dp[1] * dv[1]) / q) : 0;
+    const t = t0 + u; const a = dove(A, t); const b = dove(B, t);
+    return { t, d: Math.hypot(a[0] - b[0], a[1] - b[1]), a, b };
+  }
+  const oraCarta = (t) => { const m = Math.round((PROVE[ct.prova].ora0 + t) * 60); const p = (x) => String(x).padStart(2, '0'); return `${p(Math.floor(m / 60) % 24)}:${p(m % 60)}`; };
+  const nm = (x) => x.toFixed(1).replace('.', ',').replace(',0', '');
+  function letturaCarta() {
+    const [A, B] = navi(); const m = minimo();
+    if (!ct.finito) {
+      if (!ct.corre) return 'Premi Avvia: le navi si muovono sulla carta.';
+      const a = dove(A, ct.t); const b = dove(B, ct.t);
+      return `Ore ${oraCarta(ct.t)}. Distanza tra le navi: ${nm(Math.hypot(a[0] - b[0], a[1] - b[1]))} NM.`;
+    }
+    if (ct.prova === 'es15') return `Incontro alle **${oraCarta(m.t)}**, a **${nm(m.a[0] - A.p[0])} NM** dal porto. Come alla slide 36.`;
+    if (ct.prova === 'es16') return `Incontro alle **${oraCarta(m.t)}**: A ha percorso ${nm(m.a[0] - A.p[0])} NM, B ${nm(B.p[0] - m.b[0])} NM. Come alla slide 36.`;
+    return m.d < 1
+      ? `Rotta di collisione: B incontra A alle **${oraCarta(m.t)}**, a meno di 1 NM.`
+      : `Le navi si avvicinano al massimo alle ${oraCarta(m.t)}, a **${nm(m.d)} NM**: non è una rotta di collisione.`;
+  }
+  // La carta è una tela: 1 NM = 15 px, 100 × 66 NM
+  const CW = 1500; const CH = 1000; const PX = 15;
+  const telaCarta = document.createElement('canvas'); telaCarta.width = CW; telaCarta.height = CH;
+  const texCarta = new THREE.CanvasTexture(telaCarta); texCarta.colorSpace = THREE.SRGBColorSpace; texCarta.anisotropy = 4;
+  function disegnaCarta() {
+    const c = telaCarta.getContext('2d'); const X = (x) => x * PX; const Y = (y) => CH - y * PX;
+    c.fillStyle = '#F4EFE0'; c.fillRect(0, 0, CW, CH);
+    c.strokeStyle = '#C9D3DF'; c.lineWidth = 2;
+    for (let i = 0; i <= 100; i += 10) { c.beginPath(); c.moveTo(X(i), 0); c.lineTo(X(i), CH); c.stroke(); }
+    for (let j = 0; j <= 66; j += 10) { c.beginPath(); c.moveTo(0, Y(j)); c.lineTo(CW, Y(j)); c.stroke(); }
+    c.fillStyle = '#5B6B7C'; c.font = '36px Atkinson, sans-serif'; c.fillText('1 quadretto = 10 NM', 20, CH - 22);
+    c.font = '700 44px Bitter, Georgia, serif'; c.fillText('N ↑', CW - 110, 60);
+    const [A, B] = navi(); const tf = ct.corre || ct.finito ? ct.t : 0;
+    [[A, '#C9A227', 'A'], [B, '#B3362B', 'B']].forEach(([n, col, nome]) => {
+      const p0 = n.p; const p1 = dove(n, tf);
+      c.strokeStyle = col; c.lineWidth = 10; c.beginPath(); c.moveTo(X(p0[0]), Y(p0[1])); c.lineTo(X(p1[0]), Y(p1[1])); c.stroke();
+      if (!ct.corre && !ct.finito) { c.setLineDash([16, 12]); c.lineWidth = 5; const pf = dove(n, n.t0 + 8); c.beginPath(); c.moveTo(X(p0[0]), Y(p0[1])); c.lineTo(X(pf[0]), Y(pf[1])); c.stroke(); c.setLineDash([]); }
+      c.fillStyle = col; c.font = '700 34px Atkinson, sans-serif';
+      for (let h = Math.ceil(n.t0); h <= tf; h++) { const q = dove(n, h); c.beginPath(); c.arc(X(q[0]), Y(q[1]), 13, 0, Math.PI * 2); c.fill(); c.fillText(oraCarta(h).slice(0, 2), X(q[0]) + 14, Y(q[1]) + (nome === 'A' ? -18 : 42)); }
+      // La nave: triangolo nel verso della rotta
+      const a = (n.r * Math.PI) / 180; c.save(); c.translate(X(p1[0]), Y(p1[1])); c.rotate(a);
+      c.beginPath(); c.moveTo(0, -40); c.lineTo(22, 24); c.lineTo(-22, 24); c.closePath(); c.fill(); c.restore();
+      c.font = '700 54px Atkinson, sans-serif'; c.fillText(nome, X(p1[0]) + 24, Y(p1[1]) - 22);
+    });
+    if (ct.prova === 'es15') { c.fillStyle = '#0B2545'; c.font = '30px Atkinson, sans-serif'; c.fillText('porto', X(10) - 40, Y(33) + 52); }
+    c.strokeStyle = '#0B2545'; c.lineWidth = 6; c.strokeRect(3, 3, CW - 6, CH - 6);
+    texCarta.needsUpdate = true;
+  }
+  const creaCarta = Lezione.simula({
+    scala: 0.6, centro: [0, 0.9], k: 1.5, mare: false, pedana: [0, 1.3, 'al tavolo'], dopo: disegnaCarta,
+    vista: () => ({ target: new THREE.Vector3(0.04, 0.88, 0.02), theta: 0, phi: 0.5, r: 1.55 }),
+    modello(k, tocca) {
+      const g = new THREE.Group();
+      const BOX = (w, h, d, col, x, y, z) => { const m = new THREE.Mesh(Tavola.cuoci(new THREE.BoxGeometry(w, h, d), col), new THREE.MeshBasicMaterial({ vertexColors: true })); m.position.set(x, y, z); return m; };
+      g.add(BOX(1.3, 0.05, 0.92, '#7A4E2D', 0, 0.865, 0));
+      [[-0.6, -0.4], [0.6, -0.4], [-0.6, 0.4], [0.6, 0.4]].forEach(([x, z]) => g.add(BOX(0.05, 0.84, 0.05, '#5E3920', x, 0.42, z)));
+      const carta = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), new THREE.MeshBasicMaterial({ map: texCarta }));
+      carta.rotation.x = -Math.PI / 2; carta.position.y = 0.892; g.add(carta);
+      const presa = Tavola.maniglia(0.025 * Math.sqrt(k), 'rb'); presa.position.set(0.66, 0.93, 0.3); g.add(presa); tocca(presa);
+      const e = etichetta('rotta di B', 0.05 * k, '#B3362B'); e.position.set(0.66, 0.99, 0.3); g.add(e);
+      return g;
+    },
+    trascina(id, dx) {
+      if (ct.prova !== 'libere' || ct.corre) return;
+      ct.resto += dx / 8;
+      const n = Math.trunc(ct.resto); if (!n) return;
+      ct.resto -= n; ct.rb = (ct.rb + n + 360) % 360; ct.finito = false; disegnaCarta(); Motore.ridisegna();
+    },
+    frame(dt) {
+      if (!ct.corre) return false;
+      const m = minimo(); const fine = Math.min(10, m.t + (m.d < 1 ? 0 : 1.5));
+      ct.t = Math.min(fine, ct.t + dt);
+      if (ct.t >= fine) {
+        ct.corre = false; ct.finito = true;
+        if (ct.prova === 'libere' && m.d < 1) lez.completa('incrocio');
+        if (ct.prova !== 'libere') lez.completa(ct.prova);
+        Motore.ridisegna();
+      } else if (Math.floor(ct.t * 4) !== Math.floor((ct.t - dt) * 4)) Motore.ridisegna();
+      disegnaCarta(); return true;
+    },
+  });
+  function comandiCarta(id) {
+    if (id.startsWith('ca:') && PROVE[id.slice(3)]) { ct.prova = id.slice(3); ct.t = 0; ct.corre = false; ct.finito = false; }
+    if (id === 'rb+' || id === 'rb-') { ct.rb = (ct.rb + (id === 'rb+' ? 5 : 355)) % 360; ct.finito = false; ct.t = 0; }
+    if (id === 'ca:via') { ct.t = 0; ct.corre = true; ct.finito = false; }
+    if (id === 'ca:capo') { ct.t = 0; ct.corre = false; ct.finito = false; }
+    disegnaCarta(); Motore.sporco();
+  }
+
   lez.registra(() => {
     const p = Libro.stato(N).prevedi;
     const vr = Motore.presente(); const vera = vr && Motore.scalaVera();
@@ -189,7 +297,7 @@
           { t: 'passo', id: 'vb', nome: 'Nave B', valore: `${s.vb} kn` },
           { t: 'bottoni', h: 84, size: 34, lista: [{ id: 'avvia', testo: 'Avvia', off: s.corre }, { id: 'daccapo', testo: 'Da capo' }] },
           { t: 'riquadro', size: 36, testo: lettura() },
-          ...lez.missioni(),
+          ...lez.missioni().slice(0, 3),
         ],
         dx: [
           {
@@ -200,6 +308,26 @@
           },
           ...(vr ? [{ t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []),
           { t: 'nota', testo: 'Tira di lato la sfera d\'oro di una nave per cambiarne la velocità. La rotta è in scala, le navi no. Un\'ora dura 1,5 secondi.' },
+        ],
+      },
+      {
+        passo: 2, mondo: creaCarta, azione: comandiCarta,
+        sx: [
+          { t: 'titolo', testo: 'Carteggio' },
+          { t: 'bottoni', h: 80, size: 30, lista: Object.keys(PROVE).map((id) => ({ id: `ca:${id}`, testo: PROVE[id].nome, on: ct.prova === id })) },
+          ...(ct.prova === 'libere'
+            ? [
+              { t: 'p', size: 34, testo: 'A va per 045° a 10 kn. Scegli la rotta di B, a 12 kn, per andarle incontro. La slide 33 dice che si può fare anche fuori dalla stessa retta.' },
+              { t: 'passo', id: 'rb', nome: 'Rotta di B', valore: `${String(ct.rb).padStart(3, '0')}°` },
+            ]
+            : [{ t: 'p', size: 34, testo: PROVE[ct.prova].testo }]),
+          { t: 'bottoni', h: 80, size: 32, lista: [{ id: 'ca:via', testo: 'Avvia', off: ct.corre }, { id: 'ca:capo', testo: 'Da capo' }] },
+          { t: 'riquadro', size: 34, testo: letturaCarta() },
+          ...lez.missioni().slice(3),
+        ],
+        dx: [
+          ...Lezione.finestra(700, 'Il tavolo di carteggio è davanti a te: la carta è in scala.'),
+          { t: 'nota', testo: 'Pallini: posizione a ogni ora. 1 quadretto = 10 NM; un\'ora dura un secondo. Esercizi e risultati: slide 35, 36.' },
         ],
       },
       {

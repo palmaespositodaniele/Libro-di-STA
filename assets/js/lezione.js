@@ -165,7 +165,7 @@ window.Lezione = (function () {
   function finestra(h, testoVR) {
     const vr = Motore.presente(); const vera = vr && Motore.scalaVera();
     return [
-      { t: 'zona', id: 'finestra', h, testo: !vr ? '' : vera ? 'Punta una pedana e premi il grilletto per spostarti.' : testoVR || 'Punta la sfera d\'oro, tieni premuto il grilletto e muovi la mano.' },
+      { t: 'zona', id: 'finestra', h, testo: !vr ? '' : vera ? 'Punta una pedana e premi il grilletto per spostarti.' : `${testoVR || 'Punta la sfera d\'oro, tieni premuto il grilletto e muovi la mano.'} Per spostare il modellino stringi il tasto laterale; con la levetta lo allontani e lo giri.` },
       ...(vr ? [{ t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []),
     ];
   }
