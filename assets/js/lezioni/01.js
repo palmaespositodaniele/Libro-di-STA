@@ -98,6 +98,7 @@
     });
     const presa = maniglia(k > 1 ? 4 : 2.4, 'sbanda');
     presa.position.set(45, 21, 0); g.add(presa);
+    presa.userData.vincolo = { giro: [1, 0, 0], centro: [0, 0, 0] }; // si inclina la nave attorno alla linea d'acqua
     toccabili[dove].push(presa);
     g.position.y = -Y_ACQUA;
     const perno = new THREE.Group(); // il rollio avviene attorno alla linea d'acqua, asse x
@@ -161,7 +162,7 @@
         s.sopra = c; accendi();
         return true;
       },
-      trascina(id, dx) { s.sbanda = -1; s.a = Math.max(-0.35, Math.min(0.35, s.a + dx * 0.0016)); inclina(s.a); },
+      trascina(id, dx, dy, info) { s.sbanda = -1; s.a = Math.max(-0.35, Math.min(0.35, s.a + (info ? info.ang : dx * 0.0016))); inclina(s.a); },
       frame(dt) {
         if (s.sbanda < 0) return false;
         // A grandezza vera niente rollio: farebbe girare la testa a chi sta in coperta
@@ -224,6 +225,7 @@
     const nome = etichetta('costa', dim, '#FBFAF4'); nome.position.set(-14, 7, 30); g.add(nome);
     const nave2 = new THREE.Group(); nave2.add(Scafo.crea(k > 1 ? 7 : 3)); g.add(nave2);
     const presa = maniglia(k > 1 ? 6 : 4, 'dist'); presa.position.set(0, k > 1 ? 17 : 14, 0); nave2.add(presa);
+    presa.userData.vincolo = { asse: [1, 0, 0] }; // la nave si allontana dalla costa
     c1.navi.push(nave2); c1.prese[k > 1 ? 'mini' : 'schermo'].push(presa);
     return g;
   }
@@ -240,9 +242,9 @@
       radice, stazioni, modellino: mini,
       vistaIniziale: () => ({ target: new THREE.Vector3(50, 2, 0), theta: 0, phi: 1.05, r: 150 }),
       tocchi: (vista) => c1.prese[vista === 'mini' ? 'mini' : 'schermo'],
-      trascina(id, dx) {
+      trascina(id, dx, dy, info) {
         const prima = Math.round(c1.dist);
-        c1.dist = Math.max(1, Math.min(c1.tipo === 'minore' ? LIMITE : 34, c1.dist + dx * 0.035));
+        c1.dist = Math.max(1, Math.min(c1.tipo === 'minore' ? LIMITE : 34, c1.dist + (info ? info.s / NM : dx * 0.035)));
         posaCosta();
         if (Math.round(c1.dist) !== prima) Motore.ridisegna();
       },
@@ -283,6 +285,7 @@
     const blocco = new THREE.Mesh(cuoci(new THREE.BoxGeometry(1, 1, 1), '#F4F0E6'), new THREE.MeshBasicMaterial({ vertexColors: true })); g.add(blocco);
     const r = k > 1 ? 3 : 1.5; const pos = maniglia(r, 'pos'); const lun = maniglia(r, 'lun'); const lar = maniglia(r, 'lar');
     g.add(pos, lun, lar);
+    pos.userData.vincolo = { asse: [1, 0, 0] }; lun.userData.vincolo = { asse: [1, 0, 0] }; lar.userData.vincolo = { asse: [0, 0, 1] };
     so.copie.push({ blocco, pos, lun, lar }); so.prese[k > 1 ? 'mini' : 'schermo'].push(pos, lun, lar);
     return g;
   }
@@ -300,11 +303,13 @@
       radice, stazioni, modellino: mini,
       vistaIniziale: () => ({ target: new THREE.Vector3(45, 2, 0), theta: 0.35, phi: 1.12, r: 112 }),
       tocchi: (vista) => so.prese[vista === 'mini' ? 'mini' : 'schermo'],
-      trascina(id, dx, dy) {
+      trascina(id, dx, dy, info) {
         const prima = nomeSovra()[0];
-        if (id === 'pos') so.x += dx * 0.09;
-        if (id === 'lun') so.lun = Math.max(6, Math.min(L, so.lun + dx * 0.12));
-        if (id === 'lar') so.lar = Math.max(0.2, Math.min(1, so.lar - dy * 0.003));
+        // Le sfere stanno sul blocco: al centro lo spostano, in testa lo allungano, sul fianco lo allargano
+        const s1 = info ? info.s : 0;
+        if (id === 'pos') so.x += info ? s1 : dx * 0.09;
+        if (id === 'lun') so.lun = Math.max(6, Math.min(L, so.lun + (info ? 2 * s1 : dx * 0.12)));
+        if (id === 'lar') so.lar = Math.max(0.2, Math.min(1, so.lar + (info ? (2 * s1) / Scafo.B : -dy * 0.003)));
         so.x = Math.max(so.lun / 2, Math.min(L - so.lun / 2, so.x));
         posaSovra();
         if (nomeSovra()[0] !== prima) Motore.ridisegna();
@@ -319,7 +324,7 @@
   function righeParti() {
     const out = [];
     for (let i = 0; i < PARTI.length; i += 3) {
-      out.push({ t: 'bottoni', h: 72, size: 28, lista: PARTI.slice(i, i + 3).map((p) => ({ id: `n:${p.id}`, testo: p.nome, on: s.parte === p.id })) });
+      out.push({ t: 'bottoni', h: 72, size: 32, lista: PARTI.slice(i, i + 3).map((p) => ({ id: `n:${p.id}`, testo: p.nome, on: s.parte === p.id })) });
     }
     return out;
   }
@@ -402,7 +407,7 @@
           },
           ...bottoneScala(vr),
           { t: 'riquadro', size: 36, testo: parte ? parte.testo : 'Tocca la nave o un nome: la parte si colora.' },
-          { t: 'nota', testo: 'Tocca due volte lo stesso punto: una zona ha più nomi. Tira la sfera d\'oro di lato e lasciala per sbandare la nave. Disegno schematico.' },
+          { t: 'nota', testo: 'Tocca due volte lo stesso punto: una zona ha più nomi. Inclina la nave con la sfera d\'oro e lasciala andare. Disegno schematico.' },
         ],
       },
       {

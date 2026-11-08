@@ -203,7 +203,7 @@
           ...(p ? [{ t: 'nota', testo: `La tua previsione: ${RISPOSTE[p]}.` }] : []),
           { t: 'sotto', testo: 'Apri una falla' },
           bot(0, 3), bot(3, 6), bot(6, 9),
-          { t: 'bottoni', h: 84, size: 30, lista: [{ id: 'stagne', testo: s.stagne ? 'Paratie stagne: sì' : 'Paratie stagne: no', on: s.stagne }, { id: 'ripara', testo: 'Ripara tutto' }] },
+          { t: 'bottoni', h: 84, size: 32, lista: [{ id: 'stagne', testo: s.stagne ? 'Paratie stagne: sì' : 'Paratie stagne: no', on: s.stagne }, { id: 'ripara', testo: 'Ripara tutto' }] },
           { t: 'riquadro', size: 36, testo: stato },
           ...lez.missioni(),
         ],

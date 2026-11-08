@@ -74,7 +74,7 @@
   function disegnaLente() {
     const c = telaLente.getContext('2d'); const a = rad(s.alfa);
     c.fillStyle = C.carta; c.fillRect(0, 0, LW, LH);
-    c.fillStyle = C.ink2; c.font = '30px Disegno, cursive'; c.textAlign = 'left';
+    c.fillStyle = C.ink2; c.font = '32px Disegno, cursive'; c.textAlign = 'left';
     c.fillText('dall\'alto, prua a destra', 18, 36);
     c.fillText('frecce schematiche', 18, LH - 16);
     // Poppa della nave
@@ -83,7 +83,7 @@
     c.moveTo(LW - 10, ay - 120); c.lineTo(ax + 120, ay - 120); c.quadraticCurveTo(ax + 40, ay - 90, ax + 30, ay);
     c.quadraticCurveTo(ax + 40, ay + 90, ax + 120, ay + 120); c.lineTo(LW - 10, ay + 120); c.stroke();
     c.setLineDash([12, 9]); c.strokeStyle = C.ink2; c.lineWidth = 3; c.beginPath(); c.moveTo(60, ay); c.lineTo(LW, ay); c.stroke(); c.setLineDash([]);
-    c.fillStyle = C.ink2; c.font = '28px Disegno, cursive'; c.fillText('dritta', LW - 100, ay + 158); c.fillText('sinistra', LW - 120, ay - 134);
+    c.fillStyle = C.ink2; c.font = '32px Disegno, cursive'; c.fillText('dritta', LW - 100, ay + 158); c.fillText('sinistra', LW - 120, ay - 134);
     // Pala: con barra a dritta la coda va verso dritta
     const lp = 190;
     const bx = ax - lp * Math.cos(a); const by = ay + lp * Math.sin(a);
@@ -116,15 +116,21 @@
     t.g.position.x = -L / 2 - 1.6;
     rollio.add(scafo, t.g);
     nave.add(rollio);
-    // Sfera d'oro a poppa: tirandola di lato si mette barra
-    const presa = Tavola.maniglia(k > 1 ? 16 : 7, 'barra'); presa.position.set(-L / 2 - 6, 16, 0); nave.add(presa);
+    // Sfera d'oro su una barra che gira con il timone: la si porta di lato e la pala la segue
+    nave.userData.telaio = true; // la presa si legge nel riferimento della nave, che si muove
+    const STOCK = [-L / 2 - 1.6, 16, 0]; const R = k > 1 ? 34 : 13;
+    const leva = new THREE.Group(); leva.position.set(...STOCK); nave.add(leva);
+    leva.add(Tavola.segmento(new THREE.Vector3(0, 0, 0), new THREE.Vector3(-R, 0, 0), k > 1 ? 1.6 : 0.5, COL.ocra));
+    leva.add(Tavola.segmento(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -22, 0), k > 1 ? 1.6 : 0.5, COL.ocra));
+    const presa = Tavola.maniglia(k > 1 ? 14 : 5, 'barra'); presa.position.set(-R, 0, 0); leva.add(presa);
+    presa.userData.vincolo = { giro: [0, 1, 0], centro: STOCK };
     prese[k > 1 ? 'mini' : 'schermo'].push(presa);
     const NS = 110;
     const scia = new THREE.InstancedMesh(new THREE.CylinderGeometry(k > 1 ? 7 : 4, k > 1 ? 7 : 4, 0.4, 10), new THREE.MeshBasicMaterial({ color: COL.ocra }), NS);
     scia.frustumCulled = false;
     const m = new THREE.Matrix4().makeTranslation(0, -500, 0);
     for (let i = 0; i < NS; i++) scia.setMatrixAt(i, m);
-    copie.push({ nave, rollio, t, scia });
+    copie.push({ nave, rollio, t, scia, leva });
     return { nave, scia };
   }
   let iScia = 0;
@@ -171,11 +177,13 @@
       radice, stazioni, modellino: mini, vistaIniziale: VISTA,
       lente: () => { disegnaLente(); return texLente; },
       tocchi: (v) => prese[v === 'mini' ? 'mini' : 'schermo'],
-      trascina(id, dx) {
-        restoBarra += dx / 22;
-        const n = Math.trunc(restoBarra); if (!n) return;
-        restoBarra -= n;
+      trascina(id, dx, dy, info) {
+        let n;
+        if (info) n = Math.round((info.ang * 180) / Math.PI / 5); // passi di 5°, come i bottoni
+        else { restoBarra += dx / 22; n = Math.trunc(restoBarra); restoBarra -= n; }
+        if (!n) return;
         for (let i = 0; i < Math.abs(n); i++) comandi(n > 0 ? 'a+' : 'a-');
+        copie.forEach((c) => { c.leva.rotation.y = rad(s.alfa); });
         Motore.ridisegna();
       },
       frame(dt) {
@@ -195,7 +203,7 @@
         copie.forEach((c) => {
           c.nave.position.set(s.x, 0, s.z); c.nave.rotation.y = s.psi;
           c.rollio.rotation.x = roll;
-          c.t.pala.rotation.y = rad(s.alfa);
+          c.t.pala.rotation.y = rad(s.alfa); c.leva.rotation.y = rad(s.alfa);
           c.t.perno.visible = s.tipo === 'becker';
           c.t.perno.rotation.y = rad(s.alfa);
         });
@@ -289,12 +297,12 @@
     const k = Math.min((w - 120) / (Mx - mx), (h - 70) / (My - my));
     const X0 = x + 60 - mx * k; const Y0 = y + h - 40 + my * k;
     const P = ([px, py]) => [X0 + px * k, Y0 - py * k];
-    c.fillStyle = C.ink2; c.font = Pagina.font('n', 26); c.textAlign = 'right'; c.fillText('vista dall\'alto, partenza dal punto in basso a sinistra', x + w - 10, y + h - 6); c.textAlign = 'left';
+    c.fillStyle = C.ink2; c.font = Pagina.font('n', 32); c.textAlign = 'right'; c.fillText('vista dall\'alto, partenza dal punto in basso a sinistra', x + w - 10, y + h - 6); c.textAlign = 'left';
     const linea = (pts, col, sp) => { c.strokeStyle = col; c.lineWidth = sp; c.beginPath(); pts.forEach((p, i) => { const [a, b] = P(p); if (i) c.lineTo(a, b); else c.moveTo(a, b); }); c.stroke(); };
     Object.keys(ev.tracce).forEach((a) => {
       linea(ev.tracce[a], TINTA_EVO[a], 5);
       const [lx, ly] = P(ev.tracce[a].reduce((m, p) => (p[0] > m[0] ? p : m)));
-      c.fillStyle = TINTA_EVO[a]; c.font = Pagina.font('b', 30); c.fillText(`${a}°`, lx + 12, ly);
+      c.fillStyle = TINTA_EVO[a]; c.font = Pagina.font('b', 32); c.fillText(`${a}°`, lx + 12, ly);
     });
     if (ev.corre) {
       linea(ev.punti, C.rosso, 6);
@@ -305,14 +313,14 @@
   function graficoSbando(c, x, y, w, h) {
     const x0 = x + 120; const lw = w - 140; const X = (t) => x0 + (t / 30) * lw; const Y = (f) => y + h / 2 - (f / 6) * (h / 2 - 20);
     c.strokeStyle = C.ink2; c.lineWidth = 2; c.beginPath(); c.moveTo(x0, Y(0)); c.lineTo(x0 + lw, Y(0)); c.moveTo(x0, y + 10); c.lineTo(x0, y + h - 10); c.stroke();
-    c.fillStyle = C.ink2; c.font = Pagina.font('n', 26); c.textAlign = 'right';
+    c.fillStyle = C.ink2; c.font = Pagina.font('n', 32); c.textAlign = 'right';
     c.fillText('a dritta', x0 - 10, Y(4)); c.fillText('a sinistra', x0 - 10, Y(-4)); c.textAlign = 'left';
     c.fillText('tempo →', x0 + lw - 110, Y(0) + 30);
     if (!ev.sbando.length) return;
     c.strokeStyle = C.ink; c.lineWidth = 5; c.beginPath();
     ev.sbando.forEach(([t, f], i) => { if (t > 30) return; if (i) c.lineTo(X(t), Y(f)); else c.moveTo(X(t), Y(f)); });
     c.stroke();
-    c.fillStyle = C.ink; c.font = Pagina.font('b', 26); c.fillText('saluto', X(0.9) + 8, Y(3.2 * (ev.alfa / 35) - 1) - 6);
+    c.fillStyle = C.ink; c.font = Pagina.font('b', 32); c.fillText('saluto', X(0.9) + 8, Y(3.2 * (ev.alfa / 35) - 1) - 6);
   }
 
   lez.registra(() => {
@@ -361,7 +369,7 @@
           { t: 'bottoni', h: 84, size: 32, lista: [{ id: 'a0', testo: 'Barra al centro' }, { id: 'scia', testo: 'Cancella la scia' }] },
           { t: 'riquadro', size: 36, testo: giudizio },
           ...lez.missioni().slice(0, 3),
-          { t: 'nota', testo: 'Tira di lato la sfera d\'oro a poppa: metti barra.' },
+          { t: 'nota', testo: 'Gira la barra con la sfera d\'oro a poppa: la pala del timone la segue.' },
         ],
         dx: [
           {

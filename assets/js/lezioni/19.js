@@ -69,12 +69,13 @@
       banda(0, 12, 0x0B2545, '12'); banda(12, 24, 0x13315C, '24'); banda(24, 200, 0x5B6B7C, '200');
       const nave = new THREE.Group(); const sc = Scafo.crea(k); sc.scale.setScalar(0.42); sc.position.set(-19, -2.5, 0); nave.add(sc); g.add(nave);
       const presa = maniglia(4 + k * 0.6, 'd'); presa.position.set(0, 17, 0); nave.add(presa); tocca(presa);
+      presa.userData.vincolo = { asse: [1, 0, 0] }; // la nave va al largo
       zo.copie.push({ nave });
       return g;
     },
-    trascina(id, dx) {
+    trascina(id, dx, dy, info) {
       const prima = `${Math.round(zo.d)}|${zonaMare()[0]}`;
-      const x = Math.max(XZ(1), Math.min(XZ(330), XZ(zo.d) + dx * 0.24));
+      const x = Math.max(XZ(1), Math.min(XZ(330), XZ(zo.d) + (info ? info.s : dx * 0.24)));
       zo.d = 3 * (2 ** (x / 34) - 1);
       posaZone();
       if (Math.abs(zo.d - 12) < 1.5) lez.completa('territoriali');
@@ -139,13 +140,14 @@
       [['Stati contrari', -12], ['Tonnellaggio contrario', 12]].forEach(([t, x]) => { const e = etichetta(t, 2.8 + k * 0.4); e.position.set(x, -2.5, 7); g.add(e); });
       const pa = maniglia(2 * Math.sqrt(k), 'stati'); pa.position.x = -12; const pb = maniglia(2 * Math.sqrt(k), 'tonn'); pb.position.x = 12;
       g.add(pa, pb); tocca(pa); tocca(pb);
+      pa.userData.vincolo = { asse: [0, 1, 0] }; pb.userData.vincolo = { asse: [0, 1, 0] }; // si alza o si abbassa la colonna
       const luce = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 12), new THREE.MeshBasicMaterial({ color: 0x2F7A55 })); luce.position.set(0, 40, 0); g.add(luce);
       ta.copie.push({ a, b, pa, pb, luce });
       return g;
     },
-    trascina(id, dx, dy) {
+    trascina(id, dx, dy, info) {
       const prima = `${Math.round(ta.stati)}|${Math.round(ta.tonn)}`;
-      ta[id] = Math.max(0, Math.min(100, ta[id] - dy * 0.25));
+      ta[id] = Math.max(0, Math.min(100, ta[id] + (info ? info.s / 0.4 : -dy * 0.25)));
       posaTacita();
       if (`${Math.round(ta.stati)}|${Math.round(ta.tonn)}` !== prima) Motore.ridisegna();
     },
@@ -229,7 +231,7 @@
         ],
         dx: [
           { t: 'titolo', testo: 'I quattro pilastri' },
-          { t: 'tabella', col: [24, 16, 22, 38], size: 30, righe: [['Convenzione', 'Org.', 'In vigore', 'Tema'], ['SOLAS', 'IMO', '1980', 'sicurezza della nave'], ['MARPOL', 'IMO', '1983', 'inquinamento dalle navi'], ['STCW', 'IMO', '1984', 'formazione e guardia'], ['MLC', 'ILO', '2013', 'lavoro a bordo']] },
+          { t: 'tabella', col: [24, 16, 22, 38], size: 32, righe: [['Convenzione', 'Org.', 'In vigore', 'Tema'], ['SOLAS', 'IMO', '1980', 'sicurezza della nave'], ['MARPOL', 'IMO', '1983', 'inquinamento dalle navi'], ['STCW', 'IMO', '1984', 'formazione e guardia'], ['MLC', 'ILO', '2013', 'lavoro a bordo']] },
           { t: 'nota', testo: 'slide 31' },
         ],
       },
@@ -305,7 +307,7 @@
           { t: 'titolo', testo: 'STCW e MLC' },
           { t: 'p', size: 36, testo: '**STCW**: competenze minime su tre livelli; Capitolo VI, i «corsi IMO». {{slide 29}}' },
           { t: 'p', size: 36, testo: '**MLC 2006**: la «carta dei diritti» della gente di mare, ratificata da 113 Stati. {{slide 30}}' },
-          { t: 'tabella', col: [14, 86], size: 30, righe: [['Tit.', 'Argomento'], ['1', 'età, visita medica'], ['2', 'contratto, salario, orari'], ['3', 'alloggi, svago, cibo'], ['4', 'salute, cure, previdenza'], ['5', 'certificati, ispezioni, reclami']] },
+          { t: 'tabella', col: [14, 86], size: 32, righe: [['Tit.', 'Argomento'], ['1', 'età, visita medica'], ['2', 'contratto, salario, orari'], ['3', 'alloggi, svago, cibo'], ['4', 'salute, cure, previdenza'], ['5', 'certificati, ispezioni, reclami']] },
         ],
         dx: [
           { t: 'titolo', testo: 'Altre norme' },

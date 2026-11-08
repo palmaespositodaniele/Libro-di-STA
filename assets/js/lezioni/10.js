@@ -182,16 +182,19 @@
     g.add(bolle);
     const e = [['prua →', 8, H + 1.6, 0], ['poppa', -9, H + 1.6, 0]].map(([t, x, y, z]) => { const l = etichetta(t, k > 1 ? 1.4 : 1); l.position.set(x, y, z); return l; });
     g.add(...e);
-    // Sfere d'oro: una per i giri, sopra la vasca; una sull'asse per alzare l'elica; una sul pod
+    // Sfere d'oro: una sull'asse per alzare l'elica, una sul pod che gira con lui. I giri sono sulla pagina
     const dim = k > 1 ? 0.75 : 0.5; const dove = k > 1 ? 'mini' : 'schermo';
-    const giri = maniglia(dim, 'giri'); giri.position.set(-5, H + 0.8, 0); g.add(giri);
     const imm = maniglia(dim, 'imm'); imm.position.set(8, 1.2, 0); tipi.elica.add(imm);
-    const azi = maniglia(dim, 'azi'); azi.position.set(5, H + 0.8, 0); g.add(azi);
-    prese[dove].push(giri, imm, azi);
-    copie.push({ g, tipi, bolle, imm, azi });
+    imm.userData.vincolo = { asse: [0, 1, 0] };
+    const azi = maniglia(dim, 'azi'); g.add(azi);
+    azi.userData.vincolo = { giro: [0, 1, 0], centro: [0, 0, 0] };
+    prese[dove].push(imm, azi);
+    copie.push({ g, tipi, bolle, imm, azi, H });
     return g;
   }
-  const prese = { schermo: [], mini: [] }; const resto = { giri: 0, imm: 0, azi: 0 };
+  const prese = { schermo: [], mini: [] };
+  // La sfera del pod sta sul cerchio e gira con l'orientamento
+  const posaAzi = () => copie.forEach((c) => c.azi.position.set(5 * Math.cos(s.azi), c.H + 0.8, -5 * Math.sin(s.azi)));
 
   function mostra() {
     copie.forEach((c) => {
@@ -221,8 +224,8 @@
     barra(120, 'Spinta', spinta(), C.ink2);
     c.strokeStyle = C.ocra; c.lineWidth = 5; c.setLineDash([12, 8]); c.beginPath();
     c.moveTo(400 + 600 * SOGLIA, 14); c.lineTo(400 + 600 * SOGLIA, 100); c.stroke(); c.setLineDash([]);
-    c.fillStyle = C.ocraT; c.font = '30px Disegno, cursive'; c.fillText('sotto questa linea l\'acqua diventa vapore', 400, 216);
-    c.fillStyle = C.ink2; c.font = '30px Disegno, cursive'; c.fillText('livelli schematici, senza valori', 20, 268);
+    c.fillStyle = C.ocraT; c.font = '32px Disegno, cursive'; c.fillText('sotto questa linea l\'acqua diventa vapore', 400, 216);
+    c.fillStyle = C.ink2; c.font = '32px Disegno, cursive'; c.fillText('livelli schematici, senza valori', 20, 268);
     c.strokeStyle = C.ink; c.lineWidth = 4; c.strokeRect(2, 2, LW - 4, LH - 4);
     texLente.needsUpdate = true;
   }
@@ -242,22 +245,20 @@
     const mini = new THREE.Group();
     mini.add(copia(4));
     mini.scale.setScalar(0.048); mini.position.set(0, -0.2, 0);
-    mostra();
+    mostra(); posaAzi();
     let ultimo = '';
     mondo = {
       radice, stazioni, modellino: mini, vistaIniziale: VISTA,
       lente: () => { disegnaLente(); return texLente; },
       tocchi: (v) => prese[v === 'mini' ? 'mini' : 'schermo'].filter(presaAttiva),
-      trascina(id, dx, dy) {
-        if (id === 'azi') { s.azi += dx * 0.008; return; }
-        resto[id] += id === 'giri' ? dx / 45 : -dy / 45;
-        const n = Math.trunc(resto[id]); if (!n) return;
-        resto[id] -= n;
-        for (let i = 0; i < Math.abs(n); i++) {
-          if (id === 'giri') comandi(n > 0 ? 'giri+' : 'giri-');
-          else comandi(n > 0 ? 'imm-' : 'imm+'); // tirando su l'elica si immerge meno
+      trascina(id, dx, dy, info) {
+        if (id === 'azi') { s.azi += info ? info.ang : dx * 0.008; posaAzi(); return; }
+        if (id === 'imm' && info) {
+          // L'elica va al livello più vicino alla mano: la sfera sta 1,2 sopra il suo asse
+          let best = s.imm;
+          for (let i = 0; i <= 3; i++) if (Math.abs(POS(i) + 1.2 - info.p.y) < Math.abs(POS(best) + 1.2 - info.p.y)) best = i;
+          if (best !== s.imm) { s.imm = best; comandi(''); Motore.ridisegna(); }
         }
-        Motore.ridisegna();
       },
       frame(dt) {
         const om = s.giri * 2.4 * s.verso;
@@ -292,6 +293,7 @@
     if (id === 'imm-') s.imm = Math.max(0, s.imm - 1);
     if (id === 'azi+') s.azi += Math.PI / 6;
     if (id === 'azi-') s.azi -= Math.PI / 6;
+    posaAzi();
     if (id === 'v:d' || id === 'v:s') { const prima = s.verso; s.verso = id === 'v:d' ? 1 : -1; if (prima !== s.verso) lez.completa('verso'); }
     if (id.startsWith('t:')) {
       s.tipo = id.slice(2); visti.add(s.tipo); mostra();
@@ -355,7 +357,7 @@
         azione: comandi,
         sx: [
           ...(p ? [{ t: 'nota', testo: `La tua previsione: ${RISPOSTE[p]}.` }] : []),
-          { t: 'bottoni', h: 84, size: 30, lista: Object.keys(TIPI).map((k) => ({ id: `t:${k}`, testo: TIPI[k].nome, on: s.tipo === k })) },
+          { t: 'bottoni', h: 84, size: 32, lista: Object.keys(TIPI).map((k) => ({ id: `t:${k}`, testo: TIPI[k].nome, on: s.tipo === k })) },
           { t: 'passo', id: 'giri', nome: 'Giri', valore: NOMI_GIRI[s.giri] },
           ...(s.tipo === 'elica' ? [
             { t: 'passo', id: 'imm', nome: 'Elica', valore: NOMI_IMM[s.imm] },

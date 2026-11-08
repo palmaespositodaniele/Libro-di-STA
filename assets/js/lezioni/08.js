@@ -91,6 +91,7 @@
       zone[id] = { gz, sistemi, lam };
     });
     const presa = maniglia(k > 1 ? 0.9 : 0.6, 'apri'); presa.position.set(LU / 2, Y_P + 1.6, 0); zone.ponte.gz.add(presa);
+    presa.userData.vincolo = { asse: [0, 1, 0] }; // si solleva il ponte: lo scafo si apre
     prese[k > 1 ? 'mini' : 'schermo'].push(presa);
     const e1 = etichetta('prua →', k > 1 ? 1.6 : 1); e1.position.set(LU + 3, 2, 0); g.add(e1);
     copie.push({ g, zone, MAT });
@@ -131,8 +132,8 @@
     mondo = {
       radice, stazioni, modellino: mini, vistaIniziale: VISTA,
       tocchi: (v) => prese[v === 'mini' ? 'mini' : 'schermo'],
-      trascina(id, dx, dy) {
-        s.esploso = Math.max(0, Math.min(1, s.esploso - dy * 0.0035)); s.meta = s.esploso;
+      trascina(id, dx, dy, info) {
+        s.esploso = Math.max(0, Math.min(1, s.esploso + (info ? info.s / 3.5 : -dy * 0.0035))); s.meta = s.esploso;
         apri(s.esploso);
         if (s.esploso > 0.6) lez.completa('esploso');
       },
@@ -201,10 +202,10 @@
         sx: [
           ...(p ? [{ t: 'nota', testo: `La tua previsione: ${RISPOSTE[p]}.` }] : []),
           { t: 'sotto', testo: 'Sistema strutturale' },
-          { t: 'bottoni', h: 84, size: 30, lista: Object.keys(SISTEMI).map((k) => ({ id: `s:${k}`, testo: SISTEMI[k].nome, on: s.sis === k })) },
+          { t: 'bottoni', h: 84, size: 32, lista: Object.keys(SISTEMI).map((k) => ({ id: `s:${k}`, testo: SISTEMI[k].nome, on: s.sis === k })) },
           { t: 'sotto', testo: 'Evidenzia' },
-          { t: 'bottoni', h: 84, size: 30, lista: [['fondo', 'Fondo'], ['fianco', 'Fianco'], ['ponte', 'Ponte']].map(([k, n]) => ({ id: `z:${k}`, testo: n, on: s.zona === k })) },
-          { t: 'bottoni', h: 84, size: 30, lista: [{ id: 'esplodi', testo: s.meta ? 'Richiudi' : 'Esplodi lo scafo', on: !!s.meta }, { id: 'lamiere', testo: s.fasciame ? 'Togli il fasciame' : 'Metti il fasciame' }] },
+          { t: 'bottoni', h: 84, size: 32, lista: [['fondo', 'Fondo'], ['fianco', 'Fianco'], ['ponte', 'Ponte']].map(([k, n]) => ({ id: `z:${k}`, testo: n, on: s.zona === k })) },
+          { t: 'bottoni', h: 84, size: 32, lista: [{ id: 'esplodi', testo: s.meta ? 'Richiudi' : 'Esplodi lo scafo', on: !!s.meta }, { id: 'lamiere', testo: s.fasciame ? 'Togli il fasciame' : 'Metti il fasciame' }] },
           { t: 'riquadro', size: 36, testo: si.testo },
           ...lez.missioni(),
         ],
@@ -216,7 +217,7 @@
               : 'Punta il modellino, tieni premuto il grilletto e ruota la mano per girarlo.',
           },
           ...(vr ? [{ t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []),
-          { t: 'tabella', col: [16, 36, 24, 24], size: 30, righe: [['Zona', 'Rinforzi ordinari', 'Travi trasv.', 'Travi long.'], riga('fondo', 'Fondo'), riga('fianco', 'Fianco'), riga('ponte', 'Ponte')] },
+          { t: 'tabella', col: [16, 36, 24, 24], size: 32, righe: [['Zona', 'Rinforzi ordinari', 'Travi trasv.', 'Travi long.'], riga('fondo', 'Fondo'), riga('fianco', 'Fianco'), riga('ponte', 'Ponte')] },
           { t: 'nota', testo: 'Tocca fondo, fianco o ponte sul modello. Tira su la sfera d\'oro per aprire lo scafo. Tratto schematico.' },
         ],
       },

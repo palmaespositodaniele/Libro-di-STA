@@ -100,8 +100,9 @@
     const lab = (t, col) => { const e = etichetta(t, 0.06, col); e.position.set(0, 0.03, -R * 0.96); return e; };
     nb.add(lab('Nb', '#0B2545')); nm.add(lab('Nm', '#5B6B7C')); nv.add(lab('Nv', '#8C7020'));
     g.add(rosa);
-    // Sfera d'oro: tirandola di lato la nave accosta e la rosa gira
-    const presa = Tavola.maniglia(0.035, 'pb'); presa.position.set(0, Y + 0.1, R + 0.14); g.add(presa);
+    // Sfera d'oro sul bordo della rosa: girandola la nave accosta, e la rosa resta col nord
+    const presa = Tavola.maniglia(0.035, 'pb'); presa.position.set(0, 0.06, R + 0.16); rosa.add(presa);
+    presa.userData.vincolo = { giro: [0, 1, 0], centro: [0, Y, 0] };
     prese.push(presa);
     // Linea di fede: fissa alla nave, verso prua
     g.add(segmento(new THREE.Vector3(0, Y + 0.01, -R - 0.1), new THREE.Vector3(0, Y + 0.01, -R + 0.08), 0.006, COL.rosso));
@@ -173,7 +174,7 @@
     c.fillText(`d = ${angolo(d)}`, 620, 80);
     c.fillText(`δ = ${angolo(dv)}`, 620, 134);
     c.fillText(`V = d + δ = ${angolo(d + dv)}`, 620, 188);
-    c.fillStyle = C.ink2; c.font = '28px Disegno, cursive'; c.fillText('angoli ingranditi per leggerli', 620, 260);
+    c.fillStyle = C.ink2; c.font = '32px Disegno, cursive'; c.fillText('angoli ingranditi per leggerli', 620, 260);
     c.strokeStyle = C.ink; c.lineWidth = 4; c.strokeRect(2, 2, LW - 4, LH - 4);
     texLente.needsUpdate = true;
   }
@@ -216,10 +217,12 @@
       radice, stazioni, modellino: mini, vistaIniziale: VISTE.bussola,
       lente: () => { disegnaLente(); return texLente; },
       tocchi: () => prese,
-      trascina(id, dx) {
-        restoPb += dx / 10;
-        const n = Math.trunc(restoPb); if (!n) return;
-        restoPb -= n;
+      trascina(id, dx, dy, info) {
+        let n;
+        // La rosa disegnata è a visPb: il puntatore è a visPb + l'angolo; si va al multiplo di 5° più vicino
+        if (info) n = Math.round((visPb + (info.ang * 180) / Math.PI) / 5) - s.pb / 5;
+        else { restoPb += dx / 10; n = Math.trunc(restoPb); restoPb -= n; }
+        if (!n) return;
         for (let i = 0; i < Math.abs(n); i++) comandi(n > 0 ? 'pb+' : 'pb-');
         Motore.ridisegna();
       },
@@ -275,11 +278,20 @@
       const perno = new THREE.Group(); const nave = Scafo.crea(k); nave.position.set(-45, -6, 0); perno.add(nave);
       perno.add(segmento(new THREE.Vector3(45, 1, 0), new THREE.Vector3(70, 1, 0), 0.6 * Math.sqrt(k), COL.rosso)); // linea di prora
       const presa = maniglia(2.6 * Math.sqrt(k), 'giro'); presa.position.set(30, 14, 0); perno.add(presa); tocca(presa);
+      presa.userData.vincolo = { giro: [0, 1, 0], centro: [0, 0, 0] }; // la nave gira sul posto
       g.add(perno);
       ga.copie.push({ perno });
       return g;
     },
-    trascina(id, dx) {
+    trascina(id, dx, dy, info) {
+      if (info) {
+        // Prora vera indicata dal puntatore; la nave va alla prora di 45° in 45° che le è più vicina
+        const pv = 90 - ((ga.copie[0].perno.rotation.y + info.ang) * 180) / Math.PI;
+        let best = ga.pb; const dist = (p) => Math.abs(norm(p + deviazione(p) + D_GIRO - pv + 180) - 180);
+        for (let p = 0; p < 360; p += 45) if (dist(p) < dist(best)) best = p;
+        if (best !== ga.pb) { ga.pb = best; comandiGiro(''); Motore.ridisegna(); }
+        return;
+      }
       ga.resto += dx / 60;
       const n = Math.trunc(ga.resto); if (!n) return;
       ga.resto -= n; comandiGiro(n > 0 ? 'gp+' : 'gp-'); Motore.ridisegna();
@@ -303,7 +315,7 @@
   function curvaGiro(c, x, y, w, h) {
     const x0 = x + 70; const lw = w - 90; const X = (p) => x0 + (p / 360) * lw; const Y = (d) => y + h / 2 - 20 - (d / 9) * (h / 2 - 40);
     c.strokeStyle = C.ink2; c.lineWidth = 2; c.beginPath(); c.moveTo(x0, Y(0)); c.lineTo(x0 + lw, Y(0)); c.moveTo(x0, Y(9)); c.lineTo(x0, Y(-9)); c.stroke();
-    c.fillStyle = C.ink; c.font = Pagina.font('n', 26); c.textAlign = 'center';
+    c.fillStyle = C.ink; c.font = Pagina.font('n', 32); c.textAlign = 'center';
     for (let p = 0; p <= 360; p += 90) c.fillText(String(p).padStart(3, '0'), X(p), Y(-9) + 30);
     c.textAlign = 'right'; [[6, '6° E'], [0, '0°'], [-6, '6° W']].forEach(([d, t]) => c.fillText(t, x0 - 10, Y(d) + 9));
     c.textAlign = 'left';
@@ -316,7 +328,7 @@
     c.fillStyle = C.ink;
     ga.note.forEach((v, p) => { c.beginPath(); c.arc(X(p), Y(v), 9, 0, Math.PI * 2); c.fill(); });
     c.fillStyle = C.rosso; c.beginPath(); c.arc(X(ga.pb), Y(deviazione(ga.pb)), 5, 0, Math.PI * 2); c.fill();
-    c.fillStyle = C.ink2; c.font = Pagina.font('n', 26); c.textAlign = 'right'; c.fillText(`δ annotate: ${ga.note.size} su 8`, x0 + lw, y + 26); c.textAlign = 'left';
+    c.fillStyle = C.ink2; c.font = Pagina.font('n', 32); c.textAlign = 'right'; c.fillText(`δ annotate: ${ga.note.size} su 8`, x0 + lw, y + 26); c.textAlign = 'left';
   }
 
   const righeDev = (da, a) => [['Pb', 'δ'], ...DEV.slice(da, a).map((v, i) => [`${String((da + i) * 15).padStart(3, '0')}°`, `${num(Math.abs(v))}° ${v >= 0 ? 'E' : 'W'}`])];
@@ -376,7 +388,7 @@
             ? { t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna alla bussola' : 'Vai in plancia', on: true }] }
             : { t: 'bottoni', h: 76, size: 34, lista: [{ id: 'v:bussola', testo: 'Bussola', on: s.vista === 'bussola' }, { id: 'v:plancia', testo: 'Plancia', on: s.vista === 'plancia' }] },
           { t: 'zona', id: 'lente', h: 300 },
-          { t: 'nota', testo: 'Tira di lato la sfera d\'oro: accosta e guarda girare la rosa. Tabella δ: slide 25. Plancia schematica.' },
+          { t: 'nota', testo: 'Gira la sfera d\'oro sul bordo della rosa: la nave accosta e la linea di fede segna la nuova prora. Tabella δ: slide 25. Plancia schematica.' },
         ],
       },
       {
@@ -390,9 +402,9 @@
           ...lez.missioni().slice(3),
         ],
         dx: [
-          ...Lezione.finestra(520, 'Tira di lato la sfera d\'oro: la nave accosta di 45° alla volta.'),
+          ...Lezione.finestra(520, 'Punta la sfera d\'oro sulla nave e girala attorno: accosta di 45° alla volta.'),
           { t: 'disegno', h: 400, fn: curvaGiro },
-          { t: 'nota', testo: 'Tira di lato la sfera d\'oro: la nave accosta di 45°. I valori di δ sono quelli della tabella della slide 25.' },
+          { t: 'nota', testo: 'Gira la nave con la sfera d\'oro: accosta di 45° alla volta. I valori di δ sono quelli della tabella della slide 25.' },
         ],
       },
       {

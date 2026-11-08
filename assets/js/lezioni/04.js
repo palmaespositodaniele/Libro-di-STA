@@ -101,7 +101,7 @@
       c.beginPath();
       pt.forEach((q, i) => { if (i === 0) c.moveTo(prX(q), prY(q)); else c.lineTo(prX(q), prY(q)); });
       c.closePath(); c.fill(); c.stroke();
-      if (s.piano === 'longitudinale') { c.fillStyle = C.ink2; c.font = '26px Disegno, cursive'; c.fillText('altezze raddoppiate per leggerle', LW - 400, LH - 20); }
+      if (s.piano === 'longitudinale') { c.fillStyle = C.ink2; c.font = '32px Disegno, cursive'; c.fillText('altezze raddoppiate per leggerle', LW - 400, LH - 20); }
     }
     c.strokeStyle = C.ink; c.lineWidth = 4; c.strokeRect(2, 2, LW - 4, LH - 4);
     texLente.needsUpdate = true;
@@ -158,6 +158,8 @@
     copie.forEach((c) => {
       c.lama.visible = !!pn;
       if (!pn) return;
+      // La sfera porta il piano: si muove solo perpendicolare al piano
+      c.lama.userData.vincolo = { asse: s.piano === 'orizzontale' ? [0, 1, 0] : s.piano === 'longitudinale' ? [0, 0, 1] : [1, 0, 0] };
       if (s.piano === 'orizzontale') c.lama.position.set(L / 2, pn.val, 17);
       else if (s.piano === 'longitudinale') c.lama.position.set(L / 2, 15, pn.val);
       else c.lama.position.set(ascissa(pn.val / 20, 6), 15, 0);
@@ -212,11 +214,20 @@
       radice, stazioni, modellino: mini, vistaIniziale: VISTA,
       lente: () => { disegnaLente(); return texLente; },
       tocchi: (v) => (v === 'mini' ? toccabili.mini : toccabili.schermo),
-      trascina(id, dx, dy) {
+      trascina(id, dx, dy, info) {
         const pn = PIANI[s.piano]; if (!pn) return;
-        s.resto = (s.resto || 0) + (s.piano === 'orizzontale' ? -dy : dx) / 28;
-        const passi = Math.trunc(s.resto); if (!passi) return;
-        s.resto -= passi;
+        let passi;
+        if (info) {
+          // Il piano va alla posizione di passo più vicina al puntatore
+          const pos = (v) => (s.piano === 'trasversale' ? ascissa(v / 20, 6) : v);
+          const meta = pos(pn.val) + info.s; let best = pn.val;
+          for (let v = pn.min; v <= pn.max; v += pn.passo) if (Math.abs(pos(v) - meta) < Math.abs(pos(best) - meta)) best = v;
+          passi = best - pn.val;
+        } else {
+          s.resto = (s.resto || 0) + (s.piano === 'orizzontale' ? -dy : dx) / 28;
+          passi = Math.trunc(s.resto); if (!passi) return;
+          s.resto -= passi;
+        }
         const v = Math.min(pn.max, Math.max(pn.min, pn.val + passi));
         if (v !== pn.val) { pn.val = v; aggiornaTaglio(); Motore.ridisegna(); }
       },
@@ -304,14 +315,15 @@
       g.add(new THREE.Mesh(tappo, new THREE.MeshBasicMaterial({ color: 0x13315C, side: THREE.DoubleSide })));
       const fianco = maniglia(0.8 * Math.sqrt(k), 'fianco'); const fondo2 = maniglia(0.8 * Math.sqrt(k), 'fondo');
       g.add(fianco, fondo2); tocca(fianco); tocca(fondo2);
+      fianco.userData.vincolo = { asse: [0, 0, 1] }; fondo2.userData.vincolo = { asse: [0, 1, 0] }; // il bordo del ponte va in fuori o in dentro, il fondo su o giù
       se.copie.push({ geo, tappo, fianco, fondo: fondo2 });
       return g;
     },
     dopo: posaSezione,
-    trascina(id, dx, dy) {
+    trascina(id, dx, dy, info) {
       const f = testoFianco(); const r = Math.round(se.fondo * 10);
-      if (id === 'fianco') se.fianco = Math.max(-2.2, Math.min(2.2, se.fianco - dx * 0.012));
-      if (id === 'fondo') se.fondo = Math.max(0, Math.min(2.4, se.fondo - dy * 0.012));
+      if (id === 'fianco') se.fianco = Math.max(-2.2, Math.min(2.2, se.fianco + (info ? info.s : -dx * 0.012)));
+      if (id === 'fondo') se.fondo = Math.max(0, Math.min(2.4, se.fondo + (info ? info.s : -dy * 0.012)));
       posaSezione();
       if (testoFianco() !== f || Math.round(se.fondo * 10) !== r) Motore.ridisegna();
     },
@@ -333,7 +345,7 @@
     const p = Libro.stato(N).prevedi;
     const vr = Motore.presente(); const vera = vr && Motore.scalaVera();
     const RISPOSTE = { x: 'Asse x', y: 'Asse y', z: 'Asse z' };
-    const riga = (ids, gruppo, tipo) => ({ t: 'bottoni', h: 76, size: 28, lista: ids.map((k) => ({ id: `${tipo}:${k}`, testo: gruppo[k].nome, on: (tipo === 'm' ? s.moto : s.piano) === k, off: tipo === 'm' && vera })) });
+    const riga = (ids, gruppo, tipo) => ({ t: 'bottoni', h: 76, size: 32, lista: ids.map((k) => ({ id: `${tipo}:${k}`, testo: gruppo[k].nome, on: (tipo === 'm' ? s.moto : s.piano) === k, off: tipo === 'm' && vera })) });
     const pn = s.piano && PIANI[s.piano];
     return [
       {

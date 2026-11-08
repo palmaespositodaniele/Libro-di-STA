@@ -101,7 +101,6 @@
     te.copie.forEach((c) => {
       c.nave.position.x = v.nave;
       c.cont.position.set(...v.c);
-      c.presa.position.set(v.c[0], v.c[1] + 6, v.c[2]);
       const x = v.g ? v.c[0] : 12;
       c.carrello.position.x = x;
       const lun = Math.max(0.5, 27 - (v.g ? v.c[1] + 1.4 : 26));
@@ -143,18 +142,16 @@
       ['#B3362B', '#C9A227', '#5B6B7C', '#2F7A55'].forEach((col, i) => g.add(scatola(12, 2.6, 2.6, col, 60 + i * 14, 3.6, -45)));
       g.add(scatola(2, 7, 2, '#0B2545', 40, 5, 76), scatola(2, 7, 2, '#0B2545', 64, 5, 76), scatola(26, 1.4, 2, '#0B2545', 52, 8.5, 76));
       [['gru di banchina (STS)', 14, 33, 0], ['stack', 46, 12, -22], ['treno', 90, 8, -45], ['gate', 52, 12, 76], ['mezzi di piazzale', 52, 19, 8]].forEach(([t, x, y, z]) => { const e = etichetta(t, dim); e.position.set(x, y, z); g.add(e); });
-      const presa = maniglia(3 + k * 0.7, 'ciclo'); g.add(presa); tocca(presa);
-      te.copie.push({ nave, cont, presa, carrello, cavo, ralla });
+      te.copie.push({ nave, cont, carrello, cavo, ralla });
       return g;
     },
-    trascina(id, dx, dy) {
-      const prima = passoCiclo();
-      te.p = Math.max(0, Math.min(1, te.p + (dx - dy) * 0.0011));
-      posaCiclo();
-      if (te.p >= 0.995) lez.completa('ciclo');
-      if (passoCiclo() !== prima || te.p >= 0.995) Motore.ridisegna();
-    },
   });
+  function comandiTerminal(id) {
+    const p = Lezione.letto(id, 'ciclo', 0, 1);
+    if (typeof p !== 'number') return;
+    te.p = p; posaCiclo(); Motore.sporco();
+    if (te.p >= 0.995) lez.completa('ciclo');
+  }
 
   /* Simulazione 3: il container in mano, in metri veri (slide 22-24) ----------------------------- */
   const PIEDE = 0.3048;
@@ -334,7 +331,7 @@
       const lung = ca.tipo === 40 ? 2 : 1;
       c.fillStyle = TINTE_C[ca.id % TINTE_C.length]; c.fillRect(x0 + ca.i * cw + 3, y0 + ca.j * ch + 3, lung * cw - 6, ch - 6);
     });
-    c.fillStyle = C.ink2; c.font = Pagina.font('n', 26);
+    c.fillStyle = C.ink2; c.font = Pagina.font('n', 32);
     c.fillText('prua →', x0 + BAIE * cw - 60, y + h - 8); c.fillText('sinistra in alto, dritta in basso', x0, y + h - 8);
   }
 
@@ -386,7 +383,7 @@
     const RISPOSTE = { a: '1 TEU', b: '2 TEU', c: '4 TEU' };
     const fatto = passoCiclo();
     const lista = Object.keys(TIPI);
-    const bott = (ids) => ({ t: 'bottoni', h: 76, size: 30, lista: ids.map((id) => ({ id: `c:${id}`, testo: TIPI[id][0], on: co.tipo === id })) });
+    const bott = (ids) => ({ t: 'bottoni', h: 76, size: 32, lista: ids.map((id) => ({ id: `c:${id}`, testo: TIPI[id][0], on: co.tipo === id })) });
     return [
       {
         passo: 0,
@@ -427,7 +424,7 @@
         ],
       },
       {
-        passo: 2, mondo: creaTerminal, richiede: lez.fatto.prevedi, avviso: 'Se salti, niente bandiera.',
+        passo: 2, mondo: creaTerminal, azione: comandiTerminal, richiede: lez.fatto.prevedi, avviso: 'Se salti, niente bandiera.',
         sx: [
           ...(p ? [{ t: 'nota', testo: `La tua previsione: ${RISPOSTE[p]}.` }] : []),
           { t: 'sotto', testo: 'Il ciclo di un container' },
@@ -436,8 +433,9 @@
           ...lez.missioni().slice(0, 1),
         ],
         dx: [
-          ...Lezione.finestra(760),
-          { t: 'nota', testo: 'Trascina la sfera d\'oro verso destra: guidi tu il container. Per l\'export il ciclo è lo stesso, al contrario. Terminal schematico.' },
+          ...Lezione.finestra(680),
+          { ...Lezione.cursore('ciclo', 'Il container avanza', `${Math.min(PASSI.length, fatto + 1)} di ${PASSI.length}`, te.p, 0, 1, 'nave', 'gate'), tacche: LIMITI.slice(0, -1) },
+          { t: 'nota', testo: 'Fai scorrere il cursore: guidi tu il container. Per l\'export il ciclo è lo stesso, al contrario. Terminal schematico.' },
         ],
       },
       {
@@ -460,7 +458,7 @@
         passo: 2, mondo: creaPiano, azione: comandiPiano,
         sx: [
           { t: 'titolo', testo: 'Piano di carico' },
-          { t: 'bottoni', h: 80, size: 30, lista: [{ id: 'pc:20', testo: 'Da 20\' (1 TEU)', on: pc.tipo === 20 }, { id: 'pc:40', testo: 'Da 40\' (2 TEU)', on: pc.tipo === 40 }, { id: 'pc:svuota', testo: 'Svuota' }] },
+          { t: 'bottoni', h: 80, size: 32, lista: [{ id: 'pc:20', testo: 'Da 20\' (1 TEU)', on: pc.tipo === 20 }, { id: 'pc:40', testo: 'Da 40\' (2 TEU)', on: pc.tipo === 40 }, { id: 'pc:svuota', testo: 'Svuota' }] },
           { t: 'riquadro', size: 34, testo: testoPiano() },
           { t: 'disegno', h: 300, fn: piantaPiano },
           ...lez.missioni().slice(3),
@@ -510,7 +508,7 @@
         passo: 3,
         sx: [
           { t: 'titolo', testo: 'Le modalità' },
-          { t: 'tabella', col: [22, 39, 39], size: 30, righe: [
+          { t: 'tabella', col: [22, 39, 39], size: 32, righe: [
             ['Modalità', 'Punti di forza', 'Limiti'],
             ['Strada', 'flessibile, porta a porta', 'traffico, inquinamento'],
             ['Ferrovia', 'grandi quantità, meno emissioni', 'percorsi fissi'],

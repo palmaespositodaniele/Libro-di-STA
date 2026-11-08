@@ -259,8 +259,6 @@
     marche(nave, 1);
     marche(nave, -1);
     radice.add(nave);
-    // Sfera d'oro sul boccaporto: premendo in giù si imbarca carico
-    const presa = maniglia(2.2, 'carico'); presa.position.set(45, 12, 0); nave.add(presa);
 
     radice.add(Scafo.mare());
 
@@ -297,7 +295,6 @@
     const mini = new THREE.Group();
     const naveMini = scafo(K);
     mini.add(naveMini);
-    const presaMini = maniglia(4, 'carico'); presaMini.position.set(45, 13, 0); naveMini.add(presaMini);
     const vasca = new THREE.Mesh(new THREE.CircleGeometry(58, 64), new THREE.MeshBasicMaterial({ color: COL.acqua, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide }));
     vasca.rotation.x = -Math.PI / 2; vasca.position.set(45, 0, 0);
     mini.add(vasca);
@@ -332,15 +329,7 @@
       vistaIniziale: VISTA_NAVE,
       lente: () => { disegnaLente(visibile); return texLente; },
       primaFinestra: (r) => vicino(r < 30),
-      tocchi: (v) => [v === 'mini' ? presaMini : presa],
-      trascina(id, dx, dy) {
-        s.resto = (s.resto || 0) + dy / 7;
-        const n = Math.trunc(s.resto); if (!n) return;
-        s.resto -= n;
-        const prima = s.carico;
-        s.carico = Math.max(-300, Math.min(300, s.carico + n * 25));
-        if (s.carico !== prima) { controllaMissioni(calcola()); Motore.ridisegna(); }
-      },
+      tocchi: () => [],
       frame(dt) {
         const vero = calcola().livello;
         let sporco = false;
@@ -361,6 +350,8 @@
   }
 
   function comandoProva(id) {
+    const cv = Lezione.letto(id, 'carico', -300, 300, 25);
+    if (typeof cv === 'number') { s.carico = cv; controllaMissioni(calcola()); return; }
     if (id === 'v:nave') { Motore.vista(VISTA_NAVE()); s.vista = 'nave'; return; }
     if (id === 'v:pettine') { Motore.vista(VISTA_PETTINE()); s.vista = 'pettine'; return; }
     const cambia = {
@@ -445,13 +436,14 @@
       g.add(nave);
       const e1 = etichetta('dinamometro', dim, '#0B2545'); e1.position.set(70, 34, 0); g.add(e1);
       const presa = maniglia(2 + k * 0.5, 'gancio'); presa.position.set(45, 12, 6); g.add(presa); tocca(presa);
+      presa.userData.vincolo = { asse: [0, 1, 0] }; // la sfera scende con il gancio
       la.copie.push({ nave, molla, ago, asta, gancio, presa, funi, acqua, pelo });
       return g;
     },
-    trascina(id, dx, dy) {
+    trascina(id, dx, dy, info) {
       if (la.libero) return;
       const prima = Math.round(immersioneLab() / 100);
-      la.h = Math.max(-ARIA, Math.min(aGalla(), la.h + dy * 24));
+      la.h = Math.max(-ARIA, Math.min(aGalla(), la.h + (info ? -info.s * 1000 : dy * 24)));
       if (la.h >= aGalla()) { la.libero = true; controllaLab(); }
       posaLab();
       if (Math.round(immersioneLab() / 100) !== prima || la.libero) Motore.ridisegna();
@@ -473,7 +465,7 @@
       c.fillStyle = '#FBFAF4'; c.fillRect(xs + 10, Y(v) - 4, 100, 8);
       c.font = Pagina.font('b', 34); c.fillStyle = C.ink; c.textAlign = 'right'; c.fillText(m, xs - 16, Y(v) + 12);
     });
-    c.textAlign = 'left'; c.font = Pagina.font('n', 30); c.fillStyle = C.ink;
+    c.textAlign = 'left'; c.font = Pagina.font('n', 32); c.fillStyle = C.ink;
     if (liv < da) c.fillText('acqua più in basso', xs + 150, y + h - 20);
     else c.fillText(`galleggiamento: ${liv >= 0 ? '+' : '−'}${Math.abs(Math.round(liv))} mm dalla S`, xs + 150, Math.max(y + 34, Math.min(y + h - 10, Y(liv) - 12)));
     c.fillStyle = C.ink2; c.fillText('marche ingrandite', xs + 150, y + 30);
@@ -492,7 +484,7 @@
     c.quadraticCurveTo(100, 300, 100, 258); c.closePath(); c.stroke();
     c.strokeStyle = C.acqua; c.lineWidth = 3; c.beginPath(); c.moveTo(0, 168); c.lineTo(480, 168); c.stroke();
     c.strokeStyle = C.ink; c.lineWidth = 2.5; c.beginPath(); c.moveTo(385, 72); c.lineTo(385, 166); c.stroke();
-    c.fillStyle = C.ink; c.font = '22px Disegno, cursive'; c.textAlign = 'center';
+    c.fillStyle = C.ink; c.font = '32px Disegno, cursive'; c.textAlign = 'center';
     c.fillText('ponte stagno', 220, 56); c.fillText('riserva di spinta', 220, 126); c.fillText('volume di carena', 220, 240);
     c.textAlign = 'left'; c.fillText('bordo', 398, 118); c.fillText('libero', 398, 142); c.fillText('galleggiamento', 4, 160);
     c.restore();
@@ -564,7 +556,7 @@
           { t: 'passo', id: 'periodo', nome: 'Quando', valore: nomePeriodo(s.periodo) },
           { t: 'passo', id: 'acqua', nome: 'Densità dell\'acqua', valore: `${s.rho} kg/m³` },
           { t: 'bottoni', h: 84, size: 34, lista: [{ id: 'r:1025', testo: 'Mare', on: s.rho === 1025 }, { id: 'r:1010', testo: 'Salmastra', on: s.rho === 1010 }, { id: 'r:1000', testo: 'Dolce', on: s.rho === 1000 }] },
-          { t: 'passo', id: 'carico', nome: 'Carico, dalla S in mare', valore: conSegno(s.carico) },
+          Lezione.cursore('carico', 'Carico, dalla S in mare', conSegno(s.carico), s.carico, -300, 300),
           { t: 'bottoni', h: 84, size: 34, lista: [{ id: 'l:90', testo: 'Nave 90 m', on: s.lunghezza === 90 }, { id: 'l:150', testo: 'Nave 150 m', on: s.lunghezza === 150 }] },
           ...MISSIONI.slice(0, 3).map((m) => ({ t: 'spunta', testo: m.testo, fatta: fatte.has(m.id) })),
         ],
@@ -581,7 +573,7 @@
           { t: 'zona', id: 'lente', h: 440 },
           { t: 'p', size: 36, testo: `**${verdetto}**${nota}`, colore: r.margine < 0 ? C.rosso : C.verde },
           { t: 'p', size: 34, testo: `Bordo libero ${mm(r.bordo)} · Immersione ${mm(r.immersione)} · Marca ${r.sigla}` },
-          { t: 'nota', testo: 'Tira la sfera d\'oro verso il basso per caricare.' },
+          { t: 'nota', testo: 'Fai scorrere il carico a sinistra della pagina.' },
         ],
         azione: comandoProva,
       },

@@ -67,8 +67,6 @@
     for (let i = 0; i <= CARTA; i += 20) { const e = etichetta(`${i}`, 5 + k); e.position.set(i, 1.5, 16); g.add(e); }
     const nm = etichetta('NM', 5 + k, '#5B6B7C'); nm.position.set(CARTA + 9, 1.5, 16); g.add(nm);
     const a = nave(base, k, 'A'); a.position.z = -6; const b = nave(base, k, 'B'); b.position.z = 6;
-    // Sfera d'oro sulla nave: tirandola di lato cambia la velocità
-    [[a, 'va'], [b, 'vb']].forEach(([n, id]) => { const m = Tavola.maniglia(1.6 + k, id); m.position.set(0, 6 + k, 0); n.add(m); prese[k > 1 ? 'mini' : 'schermo'].push(m); });
     const sa = scia(-6, k, COL.ocra); const sb = scia(6, k, COL.rosso);
     g.add(a, b, sa, sb);
     copie.push({ a, b, sa, sb });
@@ -102,14 +100,7 @@
     mondo = {
       radice, stazioni, modellino: mini,
       vistaIniziale: () => ({ target: new THREE.Vector3(50, 0, 0), theta: 0, phi: 0.85, r: 170 }),
-      tocchi: (v) => (s.corre ? [] : prese[v === 'mini' ? 'mini' : 'schermo']),
-      trascina(id, dx) {
-        resto[id] += dx / 16;
-        const n = Math.trunc(resto[id]); if (!n) return;
-        resto[id] -= n;
-        for (let i = 0; i < Math.abs(n); i++) comandi(`${id}${n > 0 ? '+' : '-'}`);
-        Motore.ridisegna();
-      },
+      tocchi: () => [],
       frame(dt) {
         if (!s.corre) return false;
         s.t += dt / ORA;
@@ -207,9 +198,21 @@
       c.beginPath(); c.moveTo(0, -40); c.lineTo(22, 24); c.lineTo(-22, 24); c.closePath(); c.fill(); c.restore();
       c.font = '700 54px Atkinson, sans-serif'; c.fillText(nome, X(p1[0]) + 24, Y(p1[1]) - 22);
     });
-    if (ct.prova === 'es15') { c.fillStyle = '#0B2545'; c.font = '30px Atkinson, sans-serif'; c.fillText('porto', X(10) - 40, Y(33) + 52); }
+    if (ct.prova === 'es15') { c.fillStyle = '#0B2545'; c.font = '32px Atkinson, sans-serif'; c.fillText('porto', X(10) - 40, Y(33) + 52); }
     c.strokeStyle = '#0B2545'; c.lineWidth = 6; c.strokeRect(3, 3, CW - 6, CH - 6);
     texCarta.needsUpdate = true;
+    posaPrua();
+  }
+  // Dalla carta (miglia, nord in alto) al tavolo: x verso est, −z verso nord
+  const prua = [];
+  const sulTavolo = (p) => [-0.6 + (p[0] * PX * 1.2) / CW, 0.4 - (p[1] * PX * 0.8) / CH];
+  function posaPrua() {
+    const B = navi()[1]; const [x, z] = sulTavolo(B.p); const a = (ct.rb * Math.PI) / 180; const R = 0.1;
+    prua.forEach((m) => {
+      m.visible = ct.prova === 'libere' && !ct.corre;
+      m.userData.vincolo.centro = [x, 0.93, z];
+      m.position.set(x + R * Math.sin(a), 0.93, z - R * Math.cos(a));
+    });
   }
   const creaCarta = Lezione.simula({
     scala: 0.6, centro: [0, 0.9], k: 1.5, mare: false, pedana: [0, 1.3, 'al tavolo'], dopo: disegnaCarta,
@@ -221,15 +224,19 @@
       [[-0.6, -0.4], [0.6, -0.4], [-0.6, 0.4], [0.6, 0.4]].forEach(([x, z]) => g.add(BOX(0.05, 0.84, 0.05, '#5E3920', x, 0.42, z)));
       const carta = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), new THREE.MeshBasicMaterial({ map: texCarta }));
       carta.rotation.x = -Math.PI / 2; carta.position.y = 0.892; g.add(carta);
-      const presa = Tavola.maniglia(0.025 * Math.sqrt(k), 'rb'); presa.position.set(0.66, 0.93, 0.3); g.add(presa); tocca(presa);
-      const e = etichetta('rotta di B', 0.05 * k, '#B3362B'); e.position.set(0.66, 0.99, 0.3); g.add(e);
+      // Sfera d'oro sulla prora di B: la si gira attorno al punto di partenza e la rotta la segue
+      const presa = Tavola.maniglia(0.022 * Math.sqrt(k), 'rb'); g.add(presa); tocca(presa);
+      presa.userData.vincolo = { giro: [0, 1, 0], centro: [0, 0.93, 0] };
+      prua.push(presa);
       return g;
     },
-    trascina(id, dx) {
+    trascina(id, dx, dy, info) {
       if (ct.prova !== 'libere' || ct.corre) return;
-      ct.resto += dx / 8;
-      const n = Math.trunc(ct.resto); if (!n) return;
-      ct.resto -= n; ct.rb = (ct.rb + n + 360) % 360; ct.finito = false; disegnaCarta(); Motore.ridisegna();
+      let n;
+      if (info) n = -Math.round((info.ang * 180) / Math.PI); // verso orario visto dall'alto: la rotta cresce
+      else { ct.resto += dx / 8; n = Math.trunc(ct.resto); ct.resto -= n; }
+      if (!n) return;
+      ct.rb = (ct.rb + n + 360) % 360; ct.finito = false; disegnaCarta(); Motore.ridisegna();
     },
     frame(dt) {
       if (!ct.corre) return false;
@@ -307,14 +314,14 @@
               : 'Punta il modellino, tieni premuto il grilletto e ruota la mano per girarlo.',
           },
           ...(vr ? [{ t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []),
-          { t: 'nota', testo: 'Tira di lato la sfera d\'oro di una nave per cambiarne la velocità. La rotta è in scala, le navi no. Un\'ora dura 1,5 secondi.' },
+          { t: 'nota', testo: 'Le frecce cambiano la velocità delle navi. La rotta è in scala, le navi no. Un\'ora dura 1,5 secondi.' },
         ],
       },
       {
         passo: 2, mondo: creaCarta, azione: comandiCarta,
         sx: [
           { t: 'titolo', testo: 'Carteggio' },
-          { t: 'bottoni', h: 80, size: 30, lista: Object.keys(PROVE).map((id) => ({ id: `ca:${id}`, testo: PROVE[id].nome, on: ct.prova === id })) },
+          { t: 'bottoni', h: 80, size: 32, lista: Object.keys(PROVE).map((id) => ({ id: `ca:${id}`, testo: PROVE[id].nome, on: ct.prova === id })) },
           ...(ct.prova === 'libere'
             ? [
               { t: 'p', size: 34, testo: 'A va per 045° a 10 kn. Scegli la rotta di B, a 12 kn, per andarle incontro. La slide 33 dice che si può fare anche fuori dalla stessa retta.' },

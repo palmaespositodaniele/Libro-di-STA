@@ -194,6 +194,8 @@ window.Motore = (function () {
     if (mondo === m) return;
     if (mondo) mondo.radice.removeFromParent();
     mondo = m;
+    // Il telaio delle prese: radice e modellino hanno le stesse misure, in metri nave
+    if (m) { m.radice.userData.telaio = true; if (m.modellino) m.modellino.userData.telaio = true; }
     if (m) { mondoScena.add(m.radice); vista(m.vistaIniziale()); orbita.target.copy(orbita.meta.target); orbita.theta = orbita.meta.theta; orbita.phi = orbita.meta.phi; orbita.r = orbita.meta.r; mondoSporco = true; }
   }
 
@@ -336,10 +338,12 @@ window.Motore = (function () {
   let presaM = null;
   function puntaMondo(raggio, vista) {
     if (!mondo || !mondo.tocchi) return null;
-    const hit = raggio.intersectObjects(mondo.tocchi(vista), false);
+    // Le sfere nascoste non si prendono
+    const visibile = (o) => { for (let q = o; q; q = q.parent) if (!q.visible) return false; return true; };
+    const hit = raggio.intersectObjects(mondo.tocchi(vista), false).filter((x) => !x.object.userData.maniglia || visibile(x.object));
     if (!hit.length) return null;
     const m = hit.find((x) => x.object.userData.maniglia);
-    if (m) return { maniglia: m.object.userData.maniglia, punto: m.point, distanza: m.distance };
+    if (m) return { maniglia: m.object.userData.maniglia, punto: m.point, distanza: m.distance, oggetto: m.object };
     // Conta solo ciò che sta davanti: il raggio attraversa il modello e uscirebbe dal lato opposto
     const ids = [...new Set(hit.filter((x) => x.distance < hit[0].distance * 1.02).map((x) => x.object.userData.tocco).filter(Boolean))];
     return ids.length ? { tocchi: ids, punto: hit[0].point, distanza: hit[0].distance } : null;
@@ -360,6 +364,121 @@ window.Motore = (function () {
     agisci(`lascia:${id}`);
   }
 
+  /* Oggetti spostati a mano. userData.vincolo dice come si muove l'oggetto preso, nel telaio del modello
+     (il primo antenato con userData.telaio: x lungo la nave, y in alto, z a dritta), così la presa
+     segue il puntatore comunque il modello sia girato:
+       { asse: [x, y, z] }            scorre lungo una retta: arriva info.s, lo spostamento lungo l'asse
+       { piano: [nx, ny, nz] }        scorre su un piano: info.v, lo spostamento (info.p il punto)
+       { giro: [ax, ay, az], centro } gira intorno a un asse: info.ang, l'angolo in radianti (destrorso)
+       { sfera: { centro, r } }       corre su una sfera: info.p, il punto indicato
+     mondo.trascina(id, 0, 0, info) riceve ogni passo; al rilascio arriva 'lascia:id'.
+     La sfera deve muoversi con l'oggetto: a ogni passo si riparte da dove la lezione l'ha messa,
+     così i limiti la fermano e il puntatore la riprende senza scarti */
+  const inv = new THREE.Matrix4(); const rLoc = new THREE.Ray(); const vA = new THREE.Vector3(); const vB = new THREE.Vector3();
+  const V3 = (a) => new THREE.Vector3().fromArray(a || [0, 0, 0]);
+  function telaio(o) { let p = o.parent; while (p && !p.userData.telaio) p = p.parent; return p || o.parent; }
+  function raggioLocale(fr, raggio) {
+    fr.updateMatrixWorld(); inv.copy(fr.matrixWorld).invert();
+    rLoc.copy(raggio).applyMatrix4(inv); rLoc.direction.normalize();
+    return rLoc;
+  }
+  // Il punto del vincolo indicato dal raggio, riportato al centro della sfera presa
+  function puntoVincolo(p, r) {
+    const v = p.vincolo; const c = p.base.clone().add(p.off);
+    let q = null;
+    if (v.asse) {
+      const u = V3(v.asse).normalize(); const b = u.dot(r.direction); const den = 1 - b * b;
+      if (den < 0.06) return null; // asse quasi lungo lo sguardo: non si può leggere
+      const w = vA.copy(c).sub(r.origin); const t = (b * r.direction.dot(w) - u.dot(w)) / den;
+      q = c.addScaledVector(u, t);
+    }
+    if (v.piano) {
+      const n = V3(v.piano).normalize();
+      const den = n.dot(r.direction); if (Math.abs(den) < 0.05) return null;
+      const t = n.dot(vA.copy(c).sub(r.origin)) / den; if (t < 0) return null;
+      q = r.origin.clone().addScaledVector(r.direction, t);
+    }
+    if (v.sfera) {
+      // Sulla sfera; fuori dal bordo si resta sul bordo visibile
+      const o = V3(v.sfera.centro);
+      q = r.intersectSphere(new THREE.Sphere(o, v.sfera.r), new THREE.Vector3());
+      if (!q) { const t = vA.copy(o).sub(r.origin).dot(r.direction); q = r.origin.clone().addScaledVector(r.direction, t).sub(o).setLength(v.sfera.r).add(o); }
+      return q;
+    }
+    return q && q.sub(p.off);
+  }
+  // Base del giro: n l'asse, e1 ed e2 nel piano, angolo positivo = rotazione destrorsa attorno a n
+  function baseGiro(v) {
+    const n = V3(v.giro).normalize();
+    const e1 = Math.abs(n.y) < 0.9 ? new THREE.Vector3(0, 1, 0).cross(n).normalize() : new THREE.Vector3(1, 0, 0).cross(n).normalize();
+    return { n, e1, e2: n.clone().cross(e1), c: V3(v.centro) };
+  }
+  function angoloGiro(v, q) {
+    const b = baseGiro(v); const d = q.clone().sub(b.c);
+    return Math.atan2(d.dot(b.e2), d.dot(b.e1));
+  }
+  /* Il punto preso corre su un cerchio attorno all'asse: si cerca, vicino all'angolo di adesso,
+     il punto del cerchio più vicino al raggio. Funziona anche guardando il cerchio di taglio */
+  function angoloSulRaggio(p, r) {
+    const b = baseGiro(p.vincolo); let best = p.ang; let dmin = Infinity;
+    for (let i = -180; i <= 180; i++) {
+      const a = p.ang + (i * Math.PI) / 360;
+      const q = b.c.clone().addScaledVector(b.e1, p.rho * Math.cos(a)).addScaledVector(b.e2, p.rho * Math.sin(a)).addScaledVector(b.n, p.alto);
+      const w = q.sub(r.origin); const t = w.dot(r.direction); const d = w.lengthSq() - t * t;
+      if (d < dmin) { dmin = d; best = a; }
+    }
+    return best;
+  }
+  function iniziaPresa(t, extra) {
+    const v = t.oggetto && t.oggetto.userData.vincolo;
+    presaM = { id: t.maniglia, ...extra };
+    if (!v) return;
+    const fr = telaio(t.oggetto);
+    presaM.vincolo = v; presaM.fr = fr; presaM.obj = t.oggetto; presaM.base = fr.worldToLocal(t.oggetto.getWorldPosition(new THREE.Vector3()));
+    presaM.off = fr.worldToLocal(t.punto.clone()).sub(presaM.base);
+    if (v.giro) {
+      const b = baseGiro(v); const d = presaM.base.clone().sub(b.c);
+      presaM.alto = d.dot(b.n); presaM.rho = Math.max(1e-6, Math.hypot(d.dot(b.e1), d.dot(b.e2))); presaM.ang = angoloGiro(v, presaM.base);
+    }
+  }
+  function muoviVincolo(raggio) {
+    const p = presaM; const r = raggioLocale(p.fr, raggio);
+    // La presa segue l'oggetto: si riparte sempre da dov'è davvero (i limiti della lezione lo fermano)
+    p.base = p.fr.worldToLocal(p.obj.getWorldPosition(new THREE.Vector3()));
+    const info = {};
+    if (p.vincolo.giro) {
+      p.ang = angoloGiro(p.vincolo, p.base);
+      const a = angoloSulRaggio(p, r); info.ang = a - p.ang;
+      if (Math.abs(info.ang) < 1e-9) return;
+    } else {
+      const q = puntoVincolo(p, r);
+      if (!q) return;
+      info.p = q;
+      if (p.vincolo.asse) info.s = vB.copy(q).sub(p.base).dot(V3(p.vincolo.asse).normalize());
+      if (p.vincolo.piano) info.v = q.clone().sub(p.base);
+    }
+    if (mondo && mondo.trascina) mondo.trascina(p.id, 0, 0, info);
+    mondoSporco = true;
+  }
+
+  // Presa sul modello della finestra della pagina: il punto sulla carta diventa un raggio della sua camera
+  function muoviFinestra(h) {
+    const z = presaM.zona;
+    ndcF.set(((h.x - z.x) / z.w) * 2 - 1, -((h.y - z.y) / z.h) * 2 + 1);
+    mondoCam.updateMatrixWorld(); rcM.setFromCamera(ndcF, mondoCam);
+    muoviVincolo(rcM.ray);
+  }
+
+  /* Cursori sulla pagina: la posizione lungo la barra diventa un valore da 0 a 1 */
+  let scorre = null;
+  function aggiornaCursore(h) {
+    if (!scorre || !h || h.lato !== scorre.lato || h.x === undefined) return;
+    const z = scorre.zona; const n = z.passi;
+    const f = Math.round(Math.max(0, Math.min(1, (h.x - z.cx0) / (z.cx1 - z.cx0))) * n) / n;
+    if (f === scorre.f) return;
+    scorre.f = f; agisci(`sl:${z.id}:${f}`);
+  }
+
   function agisci(id) {
     if (id === 'avanti') { if (sez.spreads()[idx + 1]) vai(sez, idx + 1, true); return; }
     if (id === 'indietro') { if (idx > 0) vai(sez, idx - 1, false); return; }
@@ -374,9 +493,10 @@ window.Motore = (function () {
 
   function premi(h) {
     if (giro || !h || !h.id) return;
+    if (h.zona && h.zona.cursore) { scorre = { zona: h.zona, lato: h.lato, f: null }; aggiornaCursore(h); return; }
     if (h.id === 'finestra') {
       const t = suFinestra(h);
-      if (t && t.maniglia) { presaM = { id: t.maniglia, x: h.x, y: h.y }; return; }
+      if (t && t.maniglia) { iniziaPresa(t, { x: h.x, y: h.y, zona: h.zona }); return; }
       trascina = { x: h.x, y: h.y, x0: h.x, y0: h.y, tocchi: t && t.tocchi };
       return;
     }
@@ -389,6 +509,7 @@ window.Motore = (function () {
   }
   function rilascia() {
     tenuto = null; clearTimeout(ripetiT);
+    if (scorre) { const id = scorre.zona.id; scorre = null; agisci(`sl:${id}:fine`); }
     if (presaM) lasciaPresa();
     const t = trascina; trascina = null;
     // Se il puntatore non si è mosso è un clic sul modello, non una rotazione
@@ -403,11 +524,42 @@ window.Motore = (function () {
     ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     rc.setFromCamera(ndc, camera);
   }
-  el.addEventListener('pointerdown', (e) => { el.setPointerCapture(e.pointerId); raggioSchermo(e); premi(colpo()); });
+  /* Su schermo il libro si sposta trascinando la carta o il tavolo, si ingrandisce con la rotella
+     o con due dita; doppio clic fuori dai bottoni per tornare all'inquadratura iniziale */
+  const vistaSchermo = { x: 0, y: 0, zoom: 1 };
+  const dita = new Map(); let sposta = null; let pizzico = null;
+  const libera = (h) => !h || !h.id || (h.zona && h.zona.area && h.id !== 'finestra');
+  function limitaVista() {
+    vistaSchermo.zoom = Math.min(3, Math.max(0.6, vistaSchermo.zoom));
+    vistaSchermo.x = Math.max(-PW - 0.1, Math.min(PW + 0.1, vistaSchermo.x));
+    vistaSchermo.y = Math.max(-PH / 2, Math.min(PH / 2, vistaSchermo.y));
+  }
+  const distDita = () => { const [a, b] = [...dita.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  el.addEventListener('pointerdown', (e) => {
+    el.setPointerCapture(e.pointerId); raggioSchermo(e);
+    dita.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (dita.size === 2) { sposta = null; pizzico = { d0: distDita(), z0: vistaSchermo.zoom }; return; }
+    const h = colpo();
+    if (libera(h)) sposta = { x: e.clientX, y: e.clientY };
+    premi(h);
+  });
   el.addEventListener('pointermove', (e) => {
+    if (dita.has(e.pointerId)) dita.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pizzico && dita.size === 2) { vistaSchermo.zoom = pizzico.z0 * (distDita() / Math.max(1, pizzico.d0)); limitaVista(); ridimensiona(); return; }
+    if (sposta) {
+      // Il libro segue il dito: lo spostamento in pixel diventa spostamento della camera
+      const k = (2 * Math.tan((camera.fov * Math.PI) / 360) * camera.position.z) / el.clientHeight;
+      vistaSchermo.x -= (e.clientX - sposta.x) * k; vistaSchermo.y += (e.clientY - sposta.y) * k;
+      sposta.x = e.clientX; sposta.y = e.clientY; limitaVista(); ridimensiona();
+      el.style.cursor = 'grabbing';
+      return;
+    }
     raggioSchermo(e);
     const h = colpo();
-    if (presaM && h && h.x !== undefined) {
+    if (scorre) { aggiornaCursore(h); el.style.cursor = 'grabbing'; return; }
+    if (presaM && presaM.vincolo && h && h.x !== undefined) {
+      muoviFinestra(h);
+    } else if (presaM && h && h.x !== undefined) {
       muoviPresa(h.x - presaM.x, h.y - presaM.y);
       presaM.x = h.x; presaM.y = h.y;
     } else if (trascina && h && h.x !== undefined) {
@@ -420,13 +572,21 @@ window.Motore = (function () {
     if (mondo && mondo.sopra && !presaM) { if (mondo.sopra(sulModello && sulModello.tocchi)) mondoSporco = true; }
     el.style.cursor = presaM ? 'grabbing' : sulModello ? 'pointer' : h && h.id ? (h.id === 'finestra' ? 'grab' : 'pointer') : 'default';
   });
-  el.addEventListener('pointerup', rilascia);
-  el.addEventListener('pointercancel', rilascia);
+  const fineDito = (e) => { dita.delete(e.pointerId); if (dita.size < 2) pizzico = null; sposta = null; rilascia(); };
+  el.addEventListener('pointerup', fineDito);
+  el.addEventListener('pointercancel', fineDito);
   el.addEventListener('wheel', (e) => {
     raggioSchermo(e);
     const h = colpo();
-    if (h && h.id === 'finestra') { e.preventDefault(); orbita.meta.r = Math.min(260, Math.max(1.5, orbita.meta.r * Math.exp(e.deltaY * 0.001))); mondoSporco = true; }
+    e.preventDefault();
+    if (h && h.id === 'finestra') { orbita.meta.r = Math.min(260, Math.max(1.5, orbita.meta.r * Math.exp(e.deltaY * 0.001))); mondoSporco = true; return; }
+    vistaSchermo.zoom *= Math.exp(-e.deltaY * 0.0012); limitaVista(); ridimensiona();
   }, { passive: false });
+  el.addEventListener('dblclick', (e) => {
+    raggioSchermo(e);
+    if (!libera(colpo())) return;
+    vistaSchermo.x = 0; vistaSchermo.y = 0; vistaSchermo.zoom = 1; ridimensiona();
+  });
   window.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowRight') agisci('avanti');
     else if (e.key === 'ArrowLeft') agisci('indietro');
@@ -447,13 +607,13 @@ window.Motore = (function () {
     // Intorno si vede il tavolo; in alto resta una striscia libera per il pulsante VR
     const d = Math.max((PH + 0.2) / (2 * tan), largo / (2 * tan * camera.aspect));
     const x = stretto ? (focus || 1) * (PW / 2) : 0;
-    camera.position.set(x, 0.03, d);
+    camera.position.set(x + vistaSchermo.x, 0.03 + vistaSchermo.y, d / vistaSchermo.zoom);
     camera.rotation.set(0, 0, 0);
     camera.updateProjectionMatrix();
   }
   new ResizeObserver(ridimensiona).observe(contenitore);
-  document.getElementById('pagina-sx').addEventListener('click', () => { focus = -1; ridimensiona(); });
-  document.getElementById('pagina-dx').addEventListener('click', () => { focus = 1; ridimensiona(); });
+  document.getElementById('pagina-sx').addEventListener('click', () => { focus = -1; vistaSchermo.x = 0; ridimensiona(); });
+  document.getElementById('pagina-dx').addEventListener('click', () => { focus = 1; vistaSchermo.x = 0; ridimensiona(); });
 
   /* VR ------------------------------------------------------------------------ */
   const velo = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12), new THREE.MeshBasicMaterial({ color: COL.carta, side: THREE.BackSide, transparent: true, opacity: 0, depthTest: false }));
@@ -497,6 +657,51 @@ window.Motore = (function () {
     spostaMod.z = Math.max(-3.2 - POS_MODELLO.z, Math.min(-0.5 - POS_MODELLO.z, spostaMod.z));
   }
   let afferra = null; let daSalvare = false;
+
+  /* Anche il libro si sposta: puntalo e stringi il tasto laterale. Con la levetta, tenendolo,
+     si ingrandisce o si rimpicciolisce; con due mani si allarga o si stringe. Posto e misura restano salvati:
+     uno per il libro accanto al modellino, uno per il libro accanto alla nave a grandezza vera */
+  const libroVR = { mio: {}, scala: 1 };
+  const salvatoLibro = Libro.stato('vr').libro;
+  if (salvatoLibro && typeof salvatoLibro === 'object') { libroVR.mio = salvatoLibro.mio || {}; libroVR.scala = salvatoLibro.scala || 1; }
+  const salvaLibro = () => Libro.aggiorna('vr', { libro: { mio: libroVR.mio, scala: Math.round(libroVR.scala * 1000) / 1000 } });
+  const chiaveLibro = (modo) => (modo === 'vera' ? 'vera' : 'vicino');
+  let presaLibro = null;
+  const UNO = new THREE.Vector3(1, 1, 1);
+  const manoInPostazione = (c, m) => m.copy(postazione.matrixWorld).invert().multiply(c.matrixWorld);
+  const mMano = new THREE.Matrix4(); const mLibro = new THREE.Matrix4(); const vScala = new THREE.Vector3();
+  function prendiLibro(c) {
+    manoInPostazione(c, mMano).invert();
+    presaLibro = { c, rel: mMano.multiply(mLibro.compose(libro.position, libro.quaternion, UNO)).clone(), due: null };
+  }
+  function seguiLibro() {
+    if (presaLibro.due) {
+      // Due mani: la distanza tra i controller fa la misura del libro
+      const d = vMano.setFromMatrixPosition(presaLibro.c.matrixWorld).distanceTo(vScala.setFromMatrixPosition(presaLibro.due.c.matrixWorld));
+      libroVR.scala = Math.min(2.5, Math.max(0.35, presaLibro.due.s0 * (d / presaLibro.due.d0)));
+    }
+    manoInPostazione(presaLibro.c, mMano).multiply(presaLibro.rel).decompose(leggio.pos, leggio.rot, vScala);
+    libro.position.copy(leggio.pos); libro.quaternion.copy(leggio.rot);
+  }
+  function lasciaLibro() {
+    libroVR.mio[chiaveLibro(leggio.modo)] = { p: leggio.pos.toArray().map((v) => Math.round(v * 1000) / 1000), q: leggio.rot.toArray().map((v) => Math.round(v * 10000) / 10000) };
+    leggio.libero = true; presaLibro = null; salvaLibro(); sostegnoLibro();
+  }
+  // Libro spostato a mano: niente banco sotto, solo la colonna che lo regge
+  function sostegnoLibro() {
+    const vera = leggio.modo === 'vera';
+    sostegno.banco.visible = !vera && !leggio.libero; sostegno.zeppe.visible = !vera && !leggio.libero;
+    sostegno.colonna.visible = vera || leggio.libero;
+  }
+  function mettiLeggio(modo, z) {
+    const m = libroVR.mio[chiaveLibro(modo)];
+    leggio.libero = !!m;
+    if (m) { leggio.pos.fromArray(m.p); leggio.rot.fromArray(m.q); } else {
+      const vera = modo === 'vera';
+      leggio.pos.set(vera ? -0.66 : 0, leggio.altezza, z !== undefined ? z : vera ? -0.5 : -0.62);
+      leggio.rot.copy(QL(vera ? 0.75 : 0));
+    }
+  }
   const vMano = new THREE.Vector3(); const assey = new THREE.Vector3(0, 1, 0); const qLeva = new THREE.Quaternion();
   const manoNelRig = (c, v) => postazione.worldToLocal(v.setFromMatrixPosition(c.matrixWorld));
 
@@ -517,6 +722,8 @@ window.Motore = (function () {
         }
         postazione.position.set(camera.position.x, 0, camera.position.z); postazione.rotation.set(0, eulero.y, 0);
         spostaMod.set(0, 0, 0); salvaSposta();
+        // Il libro torna al suo posto davanti a chi guarda; la misura scelta resta
+        libroVR.mio = {}; salvaLibro(); mettiLeggio(leggio.modo); sostegnoLibro();
         daCentrare = true;
       },
     };
@@ -548,13 +755,12 @@ window.Motore = (function () {
       if (mondo) mondoScena.add(mondo.radice);
       rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0);
     }
-    afferra = null;
+    afferra = null; presaLibro = null;
     stanza.visible = !vera;
-    sostegno.zeppe.visible = !vera; sostegno.banco.visible = !vera; sostegno.colonna.visible = vera;
     sostegno.fascio.visible = modo === 'modello';
     // Accanto alla nave il libro si sposta di lato per non coprire la vista
-    leggio.pos.set(vera ? -0.66 : 0, leggio.altezza, vera ? -0.5 : -0.62);
-    leggio.rot.copy(QL(vera ? 0.75 : 0));
+    mettiLeggio(modo);
+    sostegnoLibro();
   }
   const modoVoluto = () => (!spread.mondo || !mondo ? 'libro' : vrScala);
   function impostaVR() {
@@ -615,22 +821,35 @@ window.Motore = (function () {
     c.addEventListener('disconnected', () => { c.visible = false; c.userData.fonte = null; });
     // Tasto laterale: si prende il modellino e lo si porta dove si vuole
     c.addEventListener('squeezestart', () => {
-      if (!modellino.visible || salita < 1) return;
       c.updateMatrixWorld(true);
+      // Prima il libro, se il raggio lo tocca; la seconda mano sul libro lo allarga o lo stringe
+      raggioController(c);
+      if (rc.intersectObject(libro, true)[0]) {
+        if (presaLibro && presaLibro.c !== c) {
+          const d = vMano.setFromMatrixPosition(presaLibro.c.matrixWorld).distanceTo(vScala.setFromMatrixPosition(c.matrixWorld));
+          presaLibro.due = { c, d0: Math.max(0.05, d), s0: libroVR.scala };
+        } else prendiLibro(c);
+        return;
+      }
+      if (!modellino.visible || salita < 1) return;
       afferra = { c, da: manoNelRig(c, new THREE.Vector3()), base: spostaMod.clone() };
     });
-    c.addEventListener('squeezeend', () => { if (afferra && afferra.c === c) { afferra = null; salvaSposta(); } });
+    c.addEventListener('squeezeend', () => {
+      if (presaLibro && presaLibro.due && presaLibro.due.c === c) { presaLibro.due = null; salvaLibro(); return; }
+      if (presaLibro && presaLibro.c === c) { lasciaLibro(); return; }
+      if (afferra && afferra.c === c) { afferra = null; salvaSposta(); }
+    });
     c.addEventListener('selectstart', () => {
       c.updateMatrixWorld(true); // la posizione di questo istante, non del fotogramma prima
       const h = colpoVR(c);
       if (!h) return;
       if (h.stazione) salto = { tempo: 0, fatto: false, azione: () => posa(h.stazione) };
-      else if (h.maniglia) { presaM = { id: h.maniglia, c, ...angoli(c) }; } else if (h.tocchi) {
+      else if (h.maniglia) { iniziaPresa(h, { c, ...angoli(c) }); } else if (h.tocchi) {
         // Sul modellino lo stesso grilletto gira: è un clic solo se viene lasciato subito
         if (leggio.modo === 'vera') agisci(`t:${h.tocchi.join(',')}`);
         else { clic = { c, t: performance.now(), tocchi: h.tocchi }; tieni = { c, inizio: c.getWorldQuaternion(new THREE.Quaternion()).invert(), base: modellino.quaternion.clone() }; }
       } else if (h.presa) tieni = { c, inizio: c.getWorldQuaternion(new THREE.Quaternion()).invert(), base: modellino.quaternion.clone() };
-      else premi(h);
+      else { premi(h); if (scorre) scorre.c = c; if (presaM && !presaM.c) Object.assign(presaM, { c }, angoli(c)); }
     });
     c.addEventListener('selectend', () => {
       const pronto = clic && clic.c === c && performance.now() - clic.t < 350 ? clic.tocchi : null;
@@ -669,11 +888,11 @@ window.Motore = (function () {
     interno.position.x = 0;
     leggio.modo = 'libro'; leggio.altezza = 1.05; vrScala = 'modello';
     postazione.position.set(0, 0, 0); postazione.rotation.set(0, 0, 0); rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0);
-    leggio.pos.set(0, 1.05, -0.78); leggio.rot.copy(QL(0));
-    libro.position.copy(leggio.pos); libro.quaternion.copy(leggio.rot);
+    presaLibro = null; mettiLeggio('libro', -0.78);
+    libro.position.copy(leggio.pos); libro.quaternion.copy(leggio.rot); libro.scale.setScalar(libroVR.scala);
     camera.position.set(0, 0, 0); camera.rotation.set(0, 0, 0);
     stanza.visible = true; daCentrare = true;
-    sostegno.tavola.visible = true; sostegno.zeppe.visible = true; sostegno.banco.visible = true;
+    sostegno.tavola.visible = true; sostegnoLibro();
     ombre.forEach((o) => { o.visible = false; });
     finestra.visible = false;
     ridisegna();
@@ -685,7 +904,7 @@ window.Motore = (function () {
     pedane.forEach((p) => { p.visible = false; }); pedane = [];
     scene.background = new THREE.Color(SFONDO);
     rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0);
-    libro.position.set(0, 0, 0); libro.rotation.set(INCLINA, 0, 0);
+    libro.position.set(0, 0, 0); libro.rotation.set(INCLINA, 0, 0); libro.scale.setScalar(1); presaLibro = null;
     stanza.visible = false; mirino.visible = false; leggio.modo = 'libro';
     [sostegno.tavola, sostegno.zeppe, sostegno.banco, sostegno.colonna, sostegno.fascio].forEach((o) => { o.visible = false; });
     ombre.forEach((o) => { o.visible = true; });
@@ -694,14 +913,50 @@ window.Motore = (function () {
     ridisegna();
   });
 
-  // Levetta: avanti e indietro allontana o avvicina il modellino, di lato lo gira; premuta, ricentra
+  /* Levetta: avanti e indietro allontana o avvicina il modellino, di lato lo gira; premuta, ricentra.
+     Tenendo il libro col tasto laterale, avanti e indietro lo ingrandisce o lo rimpicciolisce.
+     A grandezza vera si esplora: levetta sinistra cammina dove si guarda, levetta destra
+     di lato gira a scatti di 30°, avanti e indietro sale e scende */
+  const avantiV = new THREE.Vector3(); const latoV = new THREE.Vector3(); const occhio = new THREE.Vector3();
+  const VEL = 3.2; const VEL_SU = 2.4; const SCATTO = Math.PI / 6;
+  function esplora(v, ax, dt, sinistra) {
+    const forza = (a) => (Math.abs(a) < 0.2 ? 0 : (a - Math.sign(a) * 0.2) / 0.8);
+    if (sinistra) {
+      const x = forza(ax[0]); const y = forza(ax[1]);
+      if (!x && !y) return;
+      camera.getWorldDirection(avantiV); avantiV.y = 0;
+      if (avantiV.lengthSq() < 1e-6) return;
+      avantiV.normalize(); latoV.set(-avantiV.z, 0, avantiV.x);
+      // Più si spinge la levetta, più si va veloci: a fondo corsa quasi il doppio
+      const k = VEL * dt * (1 + Math.hypot(x, y));
+      rig.position.addScaledVector(avantiV, -y * k).addScaledVector(latoV, x * k);
+      return;
+    }
+    const y = forza(ax[1]);
+    if (y) rig.position.y = Math.max(0, Math.min(60, rig.position.y - y * VEL_SU * dt));
+    // Giro a scatti, attorno a dove si trova la testa: è il più comodo per lo stomaco
+    const a = Math.abs(ax[0]) > 0.7 ? Math.sign(ax[0]) : 0;
+    if (a && !v.scattato) {
+      camera.getWorldPosition(occhio);
+      rig.position.sub(occhio).applyAxisAngle(assey, -a * SCATTO).add(occhio);
+      rig.rotation.y -= a * SCATTO;
+    }
+    v.scattato = Math.abs(ax[0]) > 0.4;
+  }
   function leve(dt) {
     let mossa = false;
+    const vere = controller.filter((v) => v.c.userData.fonte && v.c.userData.fonte.gamepad);
     controller.forEach((v) => {
       const f = v.c.userData.fonte; const g = f && f.gamepad;
       if (!g) return;
       const ax = g.axes.length >= 4 ? [g.axes[2], g.axes[3]] : [g.axes[0] || 0, g.axes[1] || 0];
-      if (modellino.visible && !afferra && salita >= 1) {
+      if (presaLibro && presaLibro.c === v.c && !presaLibro.due) {
+        if (Math.abs(ax[1]) > 0.2) libroVR.scala = Math.min(2.5, Math.max(0.35, libroVR.scala * Math.exp(-ax[1] * dt * 1.2)));
+      } else if (leggio.modo === 'vera' && !salto) {
+        // Con un controller solo, quello cammina
+        esplora(v, ax, dt, f.handedness !== 'right' || vere.length < 2);
+      }
+      if (modellino.visible && !afferra && salita >= 1 && !(presaLibro && presaLibro.c === v.c)) {
         if (Math.abs(ax[1]) > 0.25) { spostaMod.z += ax[1] * dt * 0.9; limitaSposta(); mossa = true; }
         if (Math.abs(ax[0]) > 0.25) modellino.quaternion.premultiply(qLeva.setFromAxisAngle(assey, -ax[0] * dt * 1.6));
       }
@@ -752,10 +1007,12 @@ window.Motore = (function () {
         // Il leggio si adatta a chi è in piedi e a chi è seduto
         daCentrare = false;
         leggio.altezza = Math.max(0.55, camera.position.y - 0.62);
-        leggio.pos.y = leggio.altezza;
+        if (!leggio.libero) leggio.pos.y = leggio.altezza;
       }
+      if (presaLibro) seguiLibro();
       libro.position.lerp(leggio.pos, 1 - Math.exp(-dt * 3));
       libro.quaternion.slerp(leggio.rot, 1 - Math.exp(-dt * 3));
+      libro.scale.setScalar(libro.scale.x + (libroVR.scala - libro.scale.x) * (1 - Math.exp(-dt * 8)));
       sostegno.colonna.position.set(libro.position.x, 0, libro.position.z - 0.12);
       sostegno.colonna.scale.y = Math.max(0.1, libro.position.y - 0.28);
       sostegno.banco.position.set(0, 0, leggio.pos.z - 0.2);
@@ -781,7 +1038,11 @@ window.Motore = (function () {
         sostegno.fascio.position.set(0, leggio.altezza + 0.02 + (POS_MODELLO.sopra / 2) * e, -0.7 + (POS_MODELLO.z + 0.7) * e * 0.6);
         sostegno.fascio.scale.set(0.2 + 0.8 * e, Math.max(0.02, POS_MODELLO.sopra * e), 0.2 + 0.8 * e);
       }
-      if (presaM && presaM.c) {
+      if (scorre && scorre.c) { raggioController(scorre.c); aggiornaCursore(colpo()); }
+      if (presaM && presaM.c && presaM.vincolo) {
+        raggioController(presaM.c);
+        if (presaM.zona) { const hf = colpo(); if (hf && hf.x !== undefined) muoviFinestra(hf); } else muoviVincolo(rc.ray);
+      } else if (presaM && presaM.c) {
         const q = angoli(presaM.c);
         muoviPresa((q.a - presaM.a) * 1400, -(q.b - presaM.b) * 1400);
         presaM.a = q.a; presaM.b = q.b;
@@ -856,6 +1117,17 @@ window.Motore = (function () {
     presente: () => renderer.xr.isPresenting,
     scalaVera: () => vrScala === 'vera',
     sez: () => sez, indice: () => idx,
-    prove: { renderer, scene, att: () => att, agisci, camera, libro, controller, rig, giro: () => !!giro, leggio, sostegno, modellino, stanza, tavolo, mondo: () => mondo },
+    prove: { renderer, scene, att: () => att, agisci, camera, libro, controller, rig, giro: () => !!giro, leggio, sostegno, modellino, stanza, tavolo, mondo: () => mondo,
+      // Prova delle prese: punta la sfera dal centro della finestra, poi muove il puntatore a (x, y) in coordinate -1..1
+      fissa() {
+        const m = orbita.meta; Object.assign(orbita, { theta: m.theta, phi: m.phi, r: m.r }); orbita.target.copy(m.target);
+        const s = Math.sin(orbita.phi);
+        mondoCam.position.set(orbita.target.x + orbita.r * s * Math.sin(orbita.theta), orbita.target.y + orbita.r * Math.cos(orbita.phi), orbita.target.z + orbita.r * s * Math.cos(orbita.theta));
+        mondoCam.lookAt(orbita.target); mondoCam.updateMatrixWorld();
+      },
+      prendi(o) { mondoCam.updateMatrixWorld(); iniziaPresa({ maniglia: o.userData.maniglia, oggetto: o, punto: o.getWorldPosition(new THREE.Vector3()) }, {}); },
+      punta(x, y) { ndcF.set(x, y); mondoCam.updateMatrixWorld(); rcM.setFromCamera(ndcF, mondoCam); muoviVincolo(rcM.ray); },
+      dove(o) { mondoCam.updateMatrixWorld(); return o.getWorldPosition(new THREE.Vector3()).project(mondoCam); },
+      lascia() { if (presaM) lasciaPresa(); } },
   };
 })();

@@ -209,7 +209,7 @@
     const p = Libro.stato(N).prevedi;
     const vr = Motore.presente(); const vera = vr && Motore.scalaVera();
     const RISPOSTE = { chiglia: 'La chiglia', fasciame: 'Il fasciame', baglio: 'I bagli' };
-    const righe = (ids) => ({ t: 'bottoni', h: 72, size: 28, lista: ids.map((k) => ({ id: `d:${k}`, testo: PEZZI[k].nome, on: s.dettaglio === k, off: s.fatti < 2 })) });
+    const righe = (ids) => ({ t: 'bottoni', h: 72, size: 32, lista: ids.map((k) => ({ id: `d:${k}`, testo: PEZZI[k].nome, on: s.dettaglio === k, off: s.fatti < 2 })) });
     return [
       {
         passo: 0,
@@ -245,8 +245,8 @@
         sx: [
           ...(p ? [{ t: 'nota', testo: `La tua previsione: ${RISPOSTE[p]}.` }] : []),
           { t: 'sotto', testo: 'Che cosa monti adesso?' },
-          { t: 'bottoni', h: 80, size: 30, lista: FASI.slice(0, 2).map((f, i) => ({ id: `m:${f.id}`, testo: f.nome, on: s.fatti > i })) },
-          { t: 'bottoni', h: 80, size: 30, lista: FASI.slice(2).map((f, i) => ({ id: `m:${f.id}`, testo: f.nome, on: s.fatti > i + 2 })) },
+          { t: 'bottoni', h: 80, size: 32, lista: FASI.slice(0, 2).map((f, i) => ({ id: `m:${f.id}`, testo: f.nome, on: s.fatti > i })) },
+          { t: 'bottoni', h: 80, size: 32, lista: FASI.slice(2).map((f, i) => ({ id: `m:${f.id}`, testo: f.nome, on: s.fatti > i + 2 })) },
           ...(s.errore ? [{ t: 'esito', tipo: 'errato', testo: s.errore }] : []),
           { t: 'sotto', testo: 'Esplora la struttura' },
           righe(['sottochiglia', 'madiere', 'staminale']),

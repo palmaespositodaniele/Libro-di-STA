@@ -82,16 +82,8 @@
       const scafo = Scafo.crea(k, true); gruppo.add(scafo);
       const ponti = TIPI.map((t) => { const d = new THREE.Group(); t.fa(d); d.visible = false; gruppo.add(d); return d; });
       const nomi = TIPI.map((t) => { const e = etichetta(t.nome, 3 + k, '#FBFAF4'); e.position.set(45, 34, 0); g.add(e); return e; });
-      const presa = maniglia(2 + k * 0.5, 'gira'); presa.position.set(45, 2, 26); g.add(presa); tocca(presa);
       st.copie.push({ scafo, gruppo, ponti, nomi });
       return g;
-    },
-    trascina(id, dx) {
-      st.resto += dx / 55;
-      const n = Math.trunc(st.resto); if (!n) return;
-      st.resto -= n;
-      cambia(n > 0 ? 1 : -1);
-      Motore.ridisegna();
     },
   });
   function comandiGalleria(id) {
@@ -127,15 +119,17 @@
       const nave = new THREE.Group(); nave.add(Scafo.crea(k, true)); tuga(nave, 76, 86, 16); g.add(nave);
       const carico = new THREE.Group(); carico.scale.setScalar(0.72); piattaforma(carico); g.add(carico);
       const pImm = maniglia(2 + k * 0.4, 'imm'); const pZ = maniglia(2 + k * 0.4, 'zeta'); g.add(pImm, pZ); tocca(pImm); tocca(pZ);
+      pImm.userData.vincolo = { asse: [0, 1, 0] }; pZ.userData.vincolo = { asse: [0, 0, 1] }; // la nave scende, la piattaforma scorre sopra
       se.copie.push({ nave, carico, pImm, pZ });
       return g;
     },
-    trascina(id, dx, dy) {
+    trascina(id, dx, dy, info) {
       const eraA = se.z < 3; const prima = `${Math.round(se.imm * 4)}|${eraA}`;
-      if (id === 'imm') se.imm = Math.max(0, Math.min(1, se.imm + dy * 0.004));
+      const giu = info ? -info.s / MAX : dy * 0.004; const dz = info ? info.s : dx * 0.1;
+      if (id === 'imm') se.imm = Math.max(0, Math.min(1, se.imm + giu));
       // La piattaforma entra sopra la coperta solo con la nave affondata
-      if (id === 'zeta' && (se.imm > 0.75 || se.z < 3)) se.z = Math.max(0, Math.min(34, se.z + dx * 0.1));
-      if (id === 'zeta' && se.imm <= 0.75 && !eraA) se.z = Math.max(16, Math.min(34, se.z + dx * 0.1));
+      if (id === 'zeta' && (se.imm > 0.75 || se.z < 3)) se.z = Math.max(0, Math.min(34, se.z + dz));
+      if (id === 'zeta' && se.imm <= 0.75 && !eraA) se.z = Math.max(16, Math.min(34, se.z + dz));
       posaSemi();
       if (se.z < 3 && se.imm < 0.08) lez.completa('semi');
       if (`${Math.round(se.imm * 4)}|${se.z < 3}` !== prima) Motore.ridisegna();
@@ -167,13 +161,14 @@
       fondale.position.x = 40;
       const nave = new THREE.Group(); const sc = Scafo.crea(k); sc.scale.setScalar(0.8); sc.position.set(-36, -T, 0); nave.add(sc); g.add(nave);
       const presa = maniglia(2.4 + k * 0.5, 'fondo'); presa.position.set(40, 6, 16); g.add(presa); tocca(presa);
+      presa.userData.vincolo = { asse: [0, 1, 0] }; // la sfera scende col fondale
       const e = etichetta('fondale da dragare', 4 + k, '#FBFAF4'); e.position.set(40, 14, 16); g.add(e);
       dr.copie.push({ fondale, nave, presa });
       return g;
     },
-    trascina(id, dx, dy) {
+    trascina(id, dx, dy, info) {
       const prima = dr.fondo > T;
-      dr.fondo = Math.max(4.5, Math.min(11, dr.fondo + dy * 0.02));
+      dr.fondo = Math.max(4.5, Math.min(11, dr.fondo + (info ? -info.s : dy * 0.02)));
       posaDraga();
       if ((dr.fondo > T) !== prima) Motore.ridisegna();
     },
@@ -238,7 +233,7 @@
         ],
         dx: [
           ...Lezione.finestra(760),
-          { t: 'nota', testo: 'Tira di lato la sfera d\'oro: cambia nave. Sagome schematiche sullo stesso scafo: scale e forme non sono misure.' },
+          { t: 'nota', testo: 'Le frecce cambiano nave. Sagome schematiche sullo stesso scafo: scale e forme non sono misure.' },
         ],
       },
       {

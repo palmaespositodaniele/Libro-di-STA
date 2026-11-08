@@ -9,10 +9,13 @@ window.Pagina = (function () {
   };
   const TESTO = 44; // 2 cm sul libro in VR: mai meno di 34 per qualsiasi scritta
 
-  function font(stile, size) {
+  // Nessuna scritta sotto i 32 px, nemmeno le citazioni delle slide (design.md)
+  const MINIMO = 32; const stretti = [];
+  function font(stile, s) {
+    const size = Math.max(MINIMO, s);
     if (stile === 'b') return `700 ${size}px Atkinson, sans-serif`;
     if (stile === 'i') return `italic ${size}px Atkinson, sans-serif`;
-    if (stile === 'c') return `${Math.round(size * 0.74)}px Disegno, cursive`;
+    if (stile === 'c') return `${Math.max(MINIMO, Math.round(size * 0.74))}px Disegno, cursive`;
     return `${size}px Atkinson, sans-serif`;
   }
 
@@ -67,6 +70,15 @@ window.Pagina = (function () {
   }
   const quanteRighe = (ctx, testo, size, larg) => righe(ctx, testo, size, larg).length;
 
+  // Righe di un bottone, col carattere già impostato
+  function lineeBottone(ctx, testo, spazio) {
+    const linee = [];
+    testo.split(' ').forEach((p) => {
+      const prova = linee.length ? `${linee[linee.length - 1]} ${p}` : p;
+      if (linee.length && ctx.measureText(prova).width <= spazio) linee[linee.length - 1] = prova; else linee.push(p);
+    });
+    return linee;
+  }
   function bottone(ctx, zone, b) {
     const on = b.on; const off = b.off;
     ctx.globalAlpha = off ? 0.42 : 1;
@@ -74,10 +86,16 @@ window.Pagina = (function () {
     ctx.fillRect(b.x, b.y, b.w, b.h);
     ctx.strokeStyle = C.ink; ctx.lineWidth = 4;
     ctx.strokeRect(b.x, b.y, b.w, b.h);
-    const size = b.size || 38;
+    const size = Math.max(MINIMO, b.size || 38);
     ctx.fillStyle = on ? C.carta : C.ink;
     ctx.font = font('b', size); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(b.testo, b.x + b.w / 2, b.y + b.h / 2 + 2);
+    // Una scritta troppo lunga va su due righe: il carattere non si rimpicciolisce
+    const spazio = b.w - 24;
+    const linee = lineeBottone(ctx, b.testo, spazio);
+    const lh = size * 1.08;
+    linee.forEach((l, i) => ctx.fillText(l, b.x + b.w / 2, b.y + b.h / 2 + 2 + (i - (linee.length - 1) / 2) * lh));
+    // Per il collaudo: scritte che escono dal bottone
+    if (linee.length * lh > b.h - 6 || linee.some((l) => ctx.measureText(l).width > b.w - 8)) stretti.push(b.testo);
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.globalAlpha = 1;
     if (b.id && !off) zone.push({ id: b.id, x: b.x, y: b.y, w: b.w, h: b.h, ripeti: b.ripeti });
   }
@@ -123,8 +141,12 @@ window.Pagina = (function () {
       return yy - y + 22;
     },
     bottoni(c, b, y, zone) {
-      const gap = 16; const n = b.lista.length; const h = b.h || 96;
+      const gap = 16; const n = b.lista.length;
       const w = (LARGA - gap * (n - 1)) / n;
+      // Se una scritta va su più righe, la fila di bottoni si alza
+      const size = Math.max(MINIMO, b.size || 38); c.font = font('b', size);
+      const righeMax = Math.max(...b.lista.map((x) => lineeBottone(c, x.testo, w - 24).length));
+      const h = Math.max(b.h || 96, Math.ceil(righeMax * size * 1.08 + 22));
       b.lista.forEach((x, i) => bottone(c, zone, { ...x, x: MX + i * (w + gap), y, w, h, size: b.size }));
       return h + 22;
     },
@@ -147,6 +169,24 @@ window.Pagina = (function () {
       c.textAlign = 'left';
       return h + 16;
     },
+    // Cursore: si trascina lungo la barra; manda 'sl:id:f' con f da 0 a 1, e 'sl:id:fine' al rilascio
+    cursore(c, b, y, zone) {
+      const h = b.da || b.a ? 156 : 128; const x0 = MX + 34; const x1 = MX + LARGA - 34; const yb = y + 94;
+      const f = Math.max(0, Math.min(1, b.f || 0)); const xf = x0 + f * (x1 - x0);
+      c.font = font('n', 34); c.fillStyle = C.ink2; c.fillText(b.nome, MX, y + 38);
+      c.font = font('b', 40); c.fillStyle = C.ink; c.textAlign = 'right'; c.fillText(b.valore || '', MX + LARGA, y + 40); c.textAlign = 'left';
+      c.lineCap = 'round'; c.lineWidth = 14;
+      c.strokeStyle = C.griglia; c.beginPath(); c.moveTo(x0, yb); c.lineTo(x1, yb); c.stroke();
+      c.strokeStyle = C.ocra; c.beginPath(); c.moveTo(x0, yb); c.lineTo(xf, yb); c.stroke(); c.lineCap = 'butt';
+      (b.tacche || []).forEach((t) => { const xt = x0 + t * (x1 - x0); c.fillStyle = C.ink2; c.fillRect(xt - 2, yb - 22, 4, 12); });
+      c.fillStyle = C.carta; c.strokeStyle = C.ink; c.lineWidth = 5; c.beginPath(); c.arc(xf, yb, 26, 0, Math.PI * 2); c.fill(); c.stroke();
+      if (b.da || b.a) {
+        c.font = font('n', 28); c.fillStyle = C.ink2; c.fillText(b.da || '', x0 - 20, yb + 58);
+        c.textAlign = 'right'; c.fillText(b.a || '', x1 + 20, yb + 58); c.textAlign = 'left';
+      }
+      zone.push({ id: b.id, x: MX, y, w: LARGA, h, cursore: true, cx0: x0, cx1: x1, passi: b.passi || 200 });
+      return h + 16;
+    },
     spunta(c, b, y) {
       const size = 34; const n = quanteRighe(c, b.testo, size, LARGA - 66);
       c.strokeStyle = b.fatta ? C.verde : C.ink; c.lineWidth = 5; c.strokeRect(MX + 3, y + 9, 36, 36);
@@ -167,7 +207,7 @@ window.Pagina = (function () {
     },
     rail(c, b, y, zone) {
       const gap = 6; const w = (LARGA - gap * 4) / 5;
-      b.lista.forEach((x, i) => bottone(c, zone, { ...x, x: MX + i * (w + gap), y, w, h: 76, size: 30 }));
+      b.lista.forEach((x, i) => bottone(c, zone, { ...x, x: MX + i * (w + gap), y, w, h: 76, size: 32 }));
       return 96;
     },
     disegno(c, b, y) { b.fn(c, MX, y, LARGA, b.h); return b.h + 20; },
@@ -265,5 +305,5 @@ window.Pagina = (function () {
     return { zone, trabocco: y > FONDO + 26 ? y : 0, testo: testo.join(' ') };
   }
 
-  return { W, H, MX, LARGA, C, TESTO, disegna, quanteRighe, font };
+  return { W, H, MX, LARGA, C, TESTO, disegna, quanteRighe, font, stretti };
 })();

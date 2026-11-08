@@ -7,7 +7,7 @@
 
   const MISSIONI = [
     { id: 'ordine', testo: 'Metti le sei fasi nell\'ordine giusto.' },
-    { id: 'varo', testo: 'Allaga il bacino con la sfera d\'oro: è il varo tecnico.' },
+    { id: 'varo', testo: 'Allaga il bacino con il cursore: è il varo tecnico.' },
   ];
   const QUIZ = [
     { n: 1, testo: 'Chi decide di far costruire una nave?', scelte: ['L\'armatore', 'Il cantiere', 'La capitaneria'], giusta: 0, perche: 'L\'idea nasce dalla volontà di un armatore di ampliare o rinnovare la flotta.' },
@@ -102,12 +102,9 @@
     const blocchi = [];
     for (let i = 0; i < NB; i++) { const b = blocco(i, k); g.add(b); blocchi.push(b); }
     const finita = Scafo.crea(k); finita.visible = false; g.add(finita);
-    const presa = maniglia(k > 1 ? 6 : 3, 'avanza'); g.add(presa);
-    prese[k > 1 ? 'mini' : 'schermo'].push(presa);
-    copie.push({ g, blocchi, finita, progetto, lamiere, acquaB, porta, presa });
+    copie.push({ g, blocchi, finita, progetto, lamiere, acquaB, porta });
     return g;
   }
-  const prese = { schermo: [], mini: [] };
 
   const liscia = (t) => { const x = Math.max(0, Math.min(1, t)); return x * x * (3 - 2 * x); };
 
@@ -133,9 +130,6 @@
       c.porta.visible = f < 5;
       c.finita.visible = f === 5;
       if (f === 5) c.finita.position.set(liscia(a) * 118, LIV - 6, 0);
-      // La sfera d'oro è il lavoro che avanza: gru, valvole del bacino, rimorchio
-      c.presa.visible = f >= 3;
-      c.presa.position.set((f === 5 ? 60 : 8) + a * (f === 5 ? 118 : 74), 12, -Z_GRU);
     });
   }
 
@@ -153,12 +147,7 @@
     applica();
     mondo = {
       radice, stazioni, modellino: mini, vistaIniziale: VISTA,
-      tocchi: (v) => (s.f >= 3 ? prese[v === 'mini' ? 'mini' : 'schermo'] : []),
-      trascina(id, dx) {
-        s.a = Math.max(0, Math.min(1, s.a + dx * 0.004));
-        if (s.a >= 1 && s.f === 4) { lez.completa('varo'); Motore.ridisegna(); }
-        applica();
-      },
+      tocchi: () => [],
       frame() { return false; },
     };
     return mondo;
@@ -166,6 +155,12 @@
   const Z_GRU = 20;
 
   function comandi(id) {
+    const a = Lezione.letto(id, 'avanza', 0, 1, 0.01);
+    if (typeof a === 'number' && s.f >= 3) {
+      s.a = a; applica(); Motore.sporco();
+      if (s.a >= 1 && s.f === 4) lez.completa('varo');
+      return;
+    }
     if (id === 'ricomincia') { s.f = 0; s.a = 1; s.fatte = 1; s.errore = ''; s.testo = null; applica(); Motore.sporco(); return; }
     if (!id.startsWith('f:')) return;
     const i = FASI.findIndex((x) => x.id === id.slice(2));
@@ -221,11 +216,11 @@
         sx: [
           ...(p ? [{ t: 'nota', testo: `La tua previsione: ${RISPOSTE[p]}.` }] : []),
           { t: 'sotto', testo: 'Che cosa viene dopo?' },
-          { t: 'bottoni', h: 84, size: 30, lista: bot.slice(0, 2) },
-          { t: 'bottoni', h: 84, size: 30, lista: bot.slice(2, 4) },
-          { t: 'bottoni', h: 84, size: 30, lista: bot.slice(4) },
+          { t: 'bottoni', h: 84, size: 32, lista: bot.slice(0, 2) },
+          { t: 'bottoni', h: 84, size: 32, lista: bot.slice(2, 4) },
+          { t: 'bottoni', h: 84, size: 32, lista: bot.slice(4) },
           ...(s.errore ? [{ t: 'esito', tipo: 'errato', testo: s.errore }] : []),
-          { t: 'bottoni', h: 76, size: 30, lista: [{ id: 'ricomincia', testo: 'Ricomincia' }] },
+          { t: 'bottoni', h: 76, size: 32, lista: [{ id: 'ricomincia', testo: 'Ricomincia' }] },
           ...lez.missioni(),
         ],
         dx: [
@@ -236,8 +231,9 @@
               : 'Punta il modellino, tieni premuto il grilletto e ruota la mano per girarlo.',
           },
           ...(vr ? [{ t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []),
+          ...(s.f >= 3 ? [Lezione.cursore('avanza', ['La gru porta i blocchi', 'L\'acqua entra nel bacino', 'Il rimorchio porta la nave'][s.f - 3], `${Math.round(s.a * 100)}%`, s.a, 0, 1)] : []),
           { t: 'riquadro', size: 36, testo: s.testo || FASI[0].testo },
-          { t: 'nota', testo: 'Dal montaggio in poi trascina la sfera d\'oro: muovi tu la gru, l\'acqua, il rimorchio. Cantiere schematico.' },
+          { t: 'nota', testo: 'Dal montaggio in poi fai scorrere il cursore: muovi tu la gru, l\'acqua, il rimorchio. Cantiere schematico.' },
         ],
       },
       {

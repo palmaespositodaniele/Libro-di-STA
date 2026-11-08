@@ -82,7 +82,9 @@
     nave.add(freccia); g.add(nave);
     // Sfere d'oro: sulla nave per girare intorno alla bassa, sulla bassa per approfondirla
     const pNave = Tavola.maniglia(0.9 + 0.3 * k, 'nave'); pNave.position.set(0, 3, 0); nave.add(pNave);
+    pNave.userData.vincolo = { giro: [0, 1, 0], centro: [CB.x, 0, CB.z] }; // la nave gira intorno alla bassa
     const pBassa = Tavola.maniglia(0.9 + 0.3 * k, 'bassa'); g.add(pBassa);
+    pBassa.userData.vincolo = { asse: [0, 1, 0] }; // tirata giù, la bassa si approfondisce
     prese[k > 1 ? 'mini' : 'schermo'].push(pNave, pBassa);
     const A = etichetta('A', 3.6); A.position.set(CA.x, 3.4, CA.z);
     const B = etichetta('B', 3.6, '#B3362B'); B.position.set(CB.x, 1.9, CB.z);
@@ -165,7 +167,7 @@
     c.fillStyle = C.carta; c.fillRect(0, 0, LW, LH);
     const cx = 250; const cy = 155; const R = 110;
     c.strokeStyle = C.ink2; c.lineWidth = 3; c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.stroke();
-    c.fillStyle = C.ink2; c.font = '28px Disegno, cursive'; c.textAlign = 'center'; c.fillText('N', cx, cy - R - 8);
+    c.fillStyle = C.ink2; c.font = '32px Disegno, cursive'; c.textAlign = 'center'; c.fillText('N', cx, cy - R - 8);
     // Vento: arriva da g, scorre attraverso il centro
     const a = ((l.gradi - 90) * Math.PI) / 180;
     const x0 = cx + (R + 30) * Math.cos(a); const y0 = cy + (R + 30) * Math.sin(a); const x1 = cx - 40 * Math.cos(a); const y1 = cy - 40 * Math.sin(a);
@@ -178,7 +180,7 @@
     c.fillText(`Vento da ${DOVE[l.settore]}`, 490, 90);
     c.font = '34px Atkinson, sans-serif'; c.fillText(`nel Mediterraneo: ${VENTI[l.settore]}`, 490, 138);
     c.fillText(s.sud ? 'Spalle al vento: bassa a destra' : 'Spalle al vento: bassa a sinistra', 490, 186);
-    c.fillStyle = C.ink2; c.font = '28px Disegno, cursive'; c.fillText('carta schematica', 490, 250);
+    c.fillStyle = C.ink2; c.font = '32px Disegno, cursive'; c.fillText('carta schematica', 490, 250);
     c.strokeStyle = C.ink; c.lineWidth = 4; c.strokeRect(2, 2, LW - 4, LH - 4);
     texLente.needsUpdate = true;
   }
@@ -200,7 +202,22 @@
       radice, stazioni, modellino: mini, vistaIniziale: VISTA,
       lente: () => { disegnaLente(); return texLente; },
       tocchi: (v) => prese[v === 'mini' ? 'mini' : 'schermo'],
-      trascina(id, dx, dy) {
+      trascina(id, dx, dy, info) {
+        if (info) {
+          if (id === 'nave') {
+            // Le otto posizioni stanno a 45° l'una dall'altra; il giro destrorso visto dall'alto va verso ovest
+            const a = (s.dove / 8) * Math.PI * 2 - info.ang;
+            const d = ((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8;
+            if (d !== s.dove) { s.dove = d; comandi(''); Motore.ridisegna(); }
+          } else {
+            // Il livello della bassa la cui sfera è più vicina al puntatore
+            const ora = s.forza; let best = ora; let dmin = Infinity;
+            for (let f = 0; f <= 2; f++) { s.forza = f; const dd = Math.abs(quota(pres(CB.x, CB.z)) + 1.6 - info.p.y); if (dd < dmin) { dmin = dd; best = f; } }
+            s.forza = ora;
+            if (best !== ora) { comandi(best > ora ? 'forza+' : 'forza-'); Motore.ridisegna(); }
+          }
+          return;
+        }
         resto[id] += id === 'nave' ? dx / 40 : dy / 50;
         const n = Math.trunc(resto[id]); if (!n) return;
         resto[id] -= n;
@@ -274,12 +291,13 @@
       for (let i = 0; i < 14; i++) nube.add(Tavola.segmento(new THREE.Vector3(-9 + i * 1.4, 14, -8 + (i * 5) % 16), new THREE.Vector3(-10 + i * 1.4, 1, -8 + (i * 5) % 16), 0.08 * Math.sqrt(k), COL.acqua));
       g.add(nube);
       const presa = Tavola.maniglia(2.4 * Math.sqrt(k), 'fronte'); presa.position.set(0, 5, 0); g.add(presa); tocca(presa);
+      presa.userData.vincolo = { asse: [1, 0, 0] }; // si spinge avanti il cuneo freddo
       fr.copie.push({ cuneo, presa, nube });
       return g;
     },
-    trascina(id, dx) {
+    trascina(id, dx, dy, info) {
       const prima = s.fase;
-      fr.x = Math.max(0, Math.min(1, fr.x + dx * 0.0022));
+      fr.x = Math.max(0, Math.min(1, fr.x + (info ? info.s / 46 : dx * 0.0022)));
       s.fase = Math.min(2, Math.floor(fr.x * 3));
       posaFronte();
       if (s.fase !== prima) { segnaFronte(); Motore.ridisegna(); }
@@ -311,7 +329,6 @@
       c.colonna.scale.y = h + 0.03; c.colonna.position.y = PELO - 0.03 + (h + 0.03) / 2;
       c.vuoto.visible = ba.capovolto;
       c.frecce.forEach((f) => { f.scale.y = 0.4 + spinta; });
-      c.presa.position.y = PELO + 0.02 + 0.12 * (0.4 + spinta);
       c.dito.visible = !ba.capovolto;
     });
   }
@@ -354,15 +371,8 @@
       });
       const nomeAria = etichetta('pressione dell\'aria', 0.045 * k, '#8C7020'); nomeAria.position.set(0.3, PELO + 0.1, 0.06); g.add(nomeAria);
       const nomeH = etichetta('h', 0.06 * k); nomeH.position.set(0.075, PELO + 0.4, 0); g.add(nomeH);
-      const presa = maniglia(0.02 * Math.sqrt(k), 'aria'); presa.position.set(0.12, PELO + 0.1, 0.06); g.add(presa); tocca(presa);
-      ba.copie.push({ colonna, vuoto, frecce, presa, dito });
+      ba.copie.push({ colonna, vuoto, frecce, dito });
       return g;
-    },
-    trascina(id, dx, dy) {
-      if (!ba.capovolto) return;
-      const prima = ba.h;
-      ba.h = Math.max(712, Math.min(788, Math.round(ba.h + dy * 0.3)));
-      if (ba.h !== prima) { ba.vista = ba.h; posaBaro(); controllaBaro(); Motore.ridisegna(); }
     },
     // Tolto il dito, la colonna scende fino a fermarsi dove il suo peso equilibra l'aria
     frame(dt) {
@@ -372,6 +382,8 @@
     },
   });
   function comandiBaro(id) {
+    const h = Lezione.letto(id, 'aria', 712, 788, 1);
+    if (typeof h === 'number' && ba.capovolto) { ba.h = h; ba.vista = h; }
     if (id === 'b:capovolgi') ba.capovolto = true;
     if (id === 'b:annota' && ba.capovolto) ba.prima = ba.h;
     controllaBaro(); posaBaro(); Motore.sporco();
@@ -383,10 +395,10 @@
     c.strokeStyle = C.ink2; c.lineWidth = 3; c.strokeRect(xt, y, 40, h);
     const top = Math.min(a + 8, ba.vista);
     if (top >= da - 8) { c.fillStyle = '#A9B4BF'; c.fillRect(xt + 6, Math.max(y, Y(top)), 28, y + h - Math.max(y, Y(top))); }
-    c.fillStyle = C.ink; c.font = Pagina.font('n', 28); c.textAlign = 'right';
+    c.fillStyle = C.ink; c.font = Pagina.font('n', 32); c.textAlign = 'right';
     for (let mmv = da; mmv <= a; mmv += 10) { c.fillRect(xt - 30, Y(mmv) - 1.5, 26, 3); if (mmv % 20 === 0) c.fillText(String(mmv), xt - 40, Y(mmv) + 10); }
     c.textAlign = 'left';
-    if (ba.capovolto) { c.font = Pagina.font('b', 32); c.fillText(`${ba.h} mmHg ≈ ${hpa(ba.h)} hPa`, xt + 60, Math.max(y + 30, Math.min(y + h - 10, Y(ba.h) + 10))); } else { c.font = Pagina.font('n', 30); c.fillText('tubo ancora pieno', xt + 60, y + 30); }
+    if (ba.capovolto) { c.font = Pagina.font('b', 32); c.fillText(`${ba.h} mmHg ≈ ${hpa(ba.h)} hPa`, xt + 60, Math.max(y + 30, Math.min(y + h - 10, Y(ba.h) + 10))); } else { c.font = Pagina.font('n', 32); c.fillText('tubo ancora pieno', xt + 60, y + 30); }
   }
 
   /* Sezione del fronte freddo, dalla slide 65 */
@@ -469,7 +481,7 @@
           },
           ...(vr ? [{ t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []),
           { t: 'zona', id: 'lente', h: 300 },
-          { t: 'nota', testo: 'Sfere d\'oro: di lato sposti la nave intorno alla bassa, in giù approfondisci la bassa. Isobare fitte: vento forte.' },
+          { t: 'nota', testo: 'Sfere d\'oro: porta la nave intorno alla bassa, tira giù la bassa per approfondirla. Isobare fitte: vento forte.' },
         ],
       },
       {
@@ -480,7 +492,7 @@
           { t: 'riquadro', size: 38, testo: `${TESTO_FASE[s.fase]} {{slide 65}}` },
           ...lez.missioni().slice(3, 4),
         ],
-        dx: [...Lezione.finestra(540), { t: 'disegno', h: 380, fn: sezioneFronte }, { t: 'nota', testo: 'Trascina la sfera d\'oro: spingi avanti l\'aria fredda. Sezione schematica.' }],
+        dx: [...Lezione.finestra(540), { t: 'disegno', h: 380, fn: sezioneFronte }, { t: 'nota', testo: 'Spingi avanti la sfera d\'oro: l\'aria fredda avanza. Sezione schematica.' }],
       },
       {
         passo: 2, azione: comandiBaro, mondo: creaBaro,
@@ -492,6 +504,7 @@
               { t: 'bottoni', h: 84, size: 34, lista: [{ id: 'b:capovolgi', testo: 'Togli il dito: libera il tubo' }] },
             ]
             : [
+              Lezione.cursore('aria', 'Pressione dell\'aria sulla vaschetta', `${hpa(ba.h)} hPa`, ba.h, 712, 788, 'meno', 'più'),
               { t: 'riquadro', size: 38, testo: `Colonna **${ba.h} mm** di mercurio: ${ba.h} × 4/3 ≈ **${hpa(ba.h)} hPa**.${ba.h === 760 ? ' È la pressione normale al livello del mare.' : ''} {{slide 36}}` },
               { t: 'bottoni', h: 80, size: 32, lista: [{ id: 'b:annota', testo: ba.prima === null ? 'Annota la lettura' : `Annotata: ${hpa(ba.prima)} hPa` , on: ba.prima !== null }] },
               ...(ba.prima !== null ? [{ t: 'p', size: 36, testo: testoTendenza() }] : []),
@@ -499,9 +512,9 @@
           ...lez.missioni().slice(4),
         ],
         dx: [
-          ...Lezione.finestra(560, 'Punta la sfera d\'oro, tieni premuto il grilletto e muovi la mano in su o in giù.'),
+          ...Lezione.finestra(560, 'Punta il modellino, tieni premuto il grilletto e ruota la mano per girarlo.'),
           { t: 'disegno', h: 420, fn: scalaBaro },
-          { t: 'nota', testo: 'Sfera d\'oro in giù: l\'aria preme di più e la colonna sale. P = ρ · g · h (slide 35). Tre ore tra le due letture: scegli tu la nuova pressione.' },
+          { t: 'nota', testo: 'Più pressione sulla pagina: l\'aria preme di più e la colonna sale. P = ρ · g · h (slide 35). Tre ore tra le due letture: scegli tu la nuova pressione.' },
         ],
       },
       {
@@ -575,7 +588,7 @@
           { t: 'p', size: 36, testo: 'È il peso della colonna d\'aria: Torricelli la misurò nel 1643. {{slide 35}}' },
           { t: 'formula', testo: '1 mmHg ≈ 4/3 hPa' },
           { t: 'p', size: 36, testo: 'Tendenza barometrica: variazione nelle ultime 3 ore. Se scende il tempo tende a peggiorare, se sale a migliorare. {{slide 36, 37}}' },
-          { t: 'tabella', col: [30, 35, 35], size: 30, righe: [
+          { t: 'tabella', col: [30, 35, 35], size: 32, righe: [
             ['', 'Alta (A)', 'Bassa (B)'],
             ['Aria', 'scende', 'sale'],
             ['Vento (nord)', 'orario, debole', 'antiorario, forte'],
@@ -594,7 +607,7 @@
         ],
         dx: [
           { t: 'titolo', testo: 'La scala Beaufort' },
-          { t: 'tabella', col: [20, 26, 54], size: 30, righe: [
+          { t: 'tabella', col: [20, 26, 54], size: 32, righe: [
             ['Forza', 'Nodi', 'Denominazione'],
             ['0–1', 'meno di 4', 'Calma, bava di vento'],
             ['2–3', '4–10', 'Brezza leggera, brezza tesa'],
@@ -625,7 +638,7 @@
           { t: 'titolo', testo: 'Umidità e nubi' },
           { t: 'formula', testo: 'Ur = e / E × 100 %' },
           { t: 'p', size: 36, testo: 'Il **punto di rugiada** è la temperatura a cui l\'aria diventa satura. {{slide 58}}' },
-          { t: 'tabella', col: [34, 66], size: 30, righe: [
+          { t: 'tabella', col: [34, 66], size: 32, righe: [
             ['Nubi', 'Generi'],
             ['Alte', 'cirri, cirrocumuli, cirrostrati'],
             ['Medie', 'altocumuli, altostrati'],
@@ -639,7 +652,7 @@
         passo: 3,
         sx: [
           { t: 'titolo', testo: 'I fronti' },
-          { t: 'tabella', col: [24, 38, 38], size: 30, righe: [
+          { t: 'tabella', col: [24, 38, 38], size: 32, righe: [
             ['', 'Caldo', 'Freddo'],
             ['Aria', 'avanza e sale lentamente', 'avanza veloce, spinge in alto'],
             ['Nubi', 'cirri … nembostrati', 'cumulonembi'],

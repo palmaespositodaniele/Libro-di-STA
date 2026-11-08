@@ -86,7 +86,7 @@ window.Lezione = (function () {
       const q = quiz.find((x) => x.n === qn);
       return [
         { t: 'p', size: 38, testo: `**${q.n}.** ${q.testo}` },
-        { t: 'bottoni', h: 84, size: 30, lista: q.scelte.map((s, i) => ({ id: `q:${q.n}:${i}`, testo: s, off: risolti.has(q.n) })) },
+        { t: 'bottoni', h: 84, size: 32, lista: q.scelte.map((s, i) => ({ id: `q:${q.n}:${i}`, testo: s, off: risolti.has(q.n) })) },
         ...(esiti[q.n] ? [{ t: 'esito', ...esiti[q.n] }] : []),
       ];
     };
@@ -165,10 +165,23 @@ window.Lezione = (function () {
   function finestra(h, testoVR) {
     const vr = Motore.presente(); const vera = vr && Motore.scalaVera();
     return [
-      { t: 'zona', id: 'finestra', h, testo: !vr ? '' : vera ? 'Punta una pedana e premi il grilletto per spostarti.' : `${testoVR || 'Punta la sfera d\'oro, tieni premuto il grilletto e muovi la mano.'} Per spostare il modellino stringi il tasto laterale; con la levetta lo allontani e lo giri.` },
+      { t: 'zona', id: 'finestra', h, testo: !vr ? '' : vera ? 'Levetta sinistra: cammini verso dove guardi. Levetta destra: di lato giri, avanti e indietro sali e scendi. Oppure punta una pedana e premi il grilletto. Premi la levetta per tornare alla pedana.' : `${testoVR || 'Punta la sfera d\'oro, tieni premuto il grilletto e muovi la mano.'} Per spostare il modellino stringi il tasto laterale; con la levetta lo allontani e lo giri.` },
       ...(vr ? [{ t: 'bottoni', h: 76, size: 34, lista: [{ id: 'vr:scala', testo: vera ? 'Torna al modellino' : 'Vai a grandezza vera', on: true }] }] : []),
     ];
   }
 
-  return { crea, simula, finestra, esercizi };
+  /* Cursori della pagina. cursore(id, nome, valore, x, min, max, da, a) dà il blocco;
+     letto(azione, id, min, max, passo) dà il valore scelto (arrotondato al passo), 'fine' al rilascio, null se non è suo */
+  function cursore(id, nome, valore, x, min, max, da, a) {
+    return { t: 'cursore', id, nome, valore, f: (x - min) / (max - min), da, a };
+  }
+  function letto(azione, id, min, max, passo) {
+    if (!azione.startsWith(`sl:${id}:`)) return null;
+    const r = azione.slice(id.length + 4);
+    if (r === 'fine') return 'fine';
+    const v = min + Number(r) * (max - min);
+    return passo ? Math.round(v / passo) * passo : v;
+  }
+
+  return { crea, simula, finestra, esercizi, cursore, letto };
 })();

@@ -99,6 +99,7 @@
     // Due sfere d'oro sulla coperta: tirandole giù si carica quell'estremità
     [[4, 'ta'], [fp - 4, 'tf']].forEach(([x, id]) => {
       const m = maniglia(k > 1 ? 3.6 : 2, id); m.position.set(x, 13, 0); nave.add(m);
+      m.userData.vincolo = { asse: [0, 1, 0] };
       prese[k > 1 ? 'mini' : 'schermo'].push(m);
     });
     perno.add(nave);
@@ -129,12 +130,17 @@
       radice, stazioni, modellino: mini, vistaIniziale: VISTA,
       lente: () => { disegnaLente(); return texLente; },
       tocchi: (v) => (v === 'mini' ? prese.mini : prese.schermo),
-      trascina(id, dx, dy) {
-        peso[id] += dy / 9;
-        const n = Math.trunc(peso[id]); if (!n) return;
-        peso[id] -= n;
+      trascina(id, dx, dy, info) {
         const prima = s[id];
-        s[id] = Math.min(6.6, Math.max(4.5, Math.round((s[id] + n * 0.05) * 100) / 100));
+        if (info) {
+          // La sfera sta sulla coperta, 13 m sopra la chiglia: il pescaggio di quell'estremità è 13 m meno la sua quota
+          s[id] = Math.min(6.6, Math.max(4.5, Math.round((13 - info.p.y) * 20) / 20));
+        } else {
+          peso[id] += dy / 9;
+          const n = Math.trunc(peso[id]); if (!n) return;
+          peso[id] -= n;
+          s[id] = Math.min(6.6, Math.max(4.5, Math.round((s[id] + n * 0.05) * 100) / 100));
+        }
         if (s[id] !== prima) { verifica(); Motore.ridisegna(); }
       },
       frame(dt) {
@@ -175,8 +181,11 @@
     posaCarena();
   }
   function comandiCb(id) {
-    if (!id.startsWith('b:')) return;
-    s.cb = Number(id.slice(2));
+    const v = Lezione.letto(id, 'cb', 0.5, 0.85, 0.01);
+    if (v === 'fine') return;
+    if (typeof v === 'number') s.cb = Math.round(v * 100) / 100;
+    else if (id.startsWith('b:')) s.cb = Number(id.slice(2));
+    else return;
     segnaCb();
     Motore.sporco();
   }
@@ -197,7 +206,6 @@
       a.setXYZ(3 * (NP + 1), 0, TB, 0);
       a.needsUpdate = true; c.geo.computeBoundingSphere();
       cuoci(c.geo, (x, y) => (y > TB - 0.01 ? Scafo.TINTE.ponte : Scafo.TINTE.murata));
-      c.presa.position.x = ((s.cb - 0.5) / 0.35) * (LB / 2 - 8) - 6;
     });
   }
   const creaCarena = Lezione.simula({
@@ -216,17 +224,8 @@
       scatola.position.y = TB / 2; g.add(scatola);
       const vetro = new THREE.Mesh(new THREE.BoxGeometry(LB, TB, BB), new THREE.MeshBasicMaterial({ color: COL.ocra, transparent: true, opacity: 0.1, depthWrite: false, side: THREE.DoubleSide }));
       vetro.position.y = TB / 2; g.add(vetro);
-      const presa = maniglia(Math.sqrt(k) * 2, 'cb'); presa.position.set(0, TB + 3, 0); g.add(presa); tocca(presa);
-      car.copie.push({ geo, m, presa });
+      car.copie.push({ geo, m });
       return g;
-    },
-    trascina(id, dx) {
-      car.resto += dx / 12;
-      const n = Math.trunc(car.resto); if (!n) return;
-      car.resto -= n;
-      const prima = s.cb;
-      s.cb = Math.min(0.85, Math.max(0.5, Math.round((s.cb + n * 0.01) * 100) / 100));
-      if (s.cb !== prima) { segnaCb(); Motore.ridisegna(); }
     },
   });
 
@@ -297,12 +296,13 @@
           { t: 'titolo', testo: 'Nave tozza, nave snella' },
           { t: 'p', testo: 'CB dice quale frazione del parallelepipedo circoscritto è davvero occupata dalla carena. {{slide 36}}' },
           { t: 'bottoni', h: 92, size: 36, lista: [0.85, 0.72, 0.5].map((v) => ({ id: `b:${v}`, testo: `CB ${virgola(v)}`, on: s.cb === v })) },
+          Lezione.cursore('cb', 'Coefficiente di blocco', `CB = ${virgola(s.cb)}`, s.cb, 0.5, 0.85, '0,50', '0,85'),
           { t: 'p', size: 36, testo: 'CB 0,85: petroliere e bulk. CB 0,72: la nave RO-RO dell\'esercizio. Sotto 0,50: scafi plananti. {{slide 34, 37}}' },
           ...lez.missioni().slice(2),
         ],
         dx: [
           ...Lezione.finestra(560),
-          { t: 'nota', testo: `CB = ${virgola(s.cb)}. Trascina la sfera d'oro: forma schematica con la stessa frazione del parallelepipedo.` },
+          { t: 'nota', testo: `CB = ${virgola(s.cb)}. Fai scorrere il cursore: forma schematica con la stessa frazione del parallelepipedo.` },
           { t: 'formula', testo: '∇ = LWL · BWL · T · CB' },
           { t: 'p', size: 38, testo: `Con LWL = 192 m, BWL = 32 m, T = 6,8 m: ∇ = **${interoSpaziato(volume)} m³** {{dati: slide 37}}` },
         ],

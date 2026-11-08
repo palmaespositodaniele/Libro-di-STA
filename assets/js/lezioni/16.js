@@ -52,7 +52,6 @@
       for (let i = 0; i <= FU; i++) for (let j = 0; j <= FV; j++) { p.setXYZ(n++, ...puntoForma(-Math.PI + (i / FU) * 2 * Math.PI, -Math.PI / 2 + (j / FV) * Math.PI, fo.t)); }
       p.needsUpdate = true; c.geo.computeBoundingSphere();
       cuoci(c.geo, '#2E7DB5');
-      c.presa.position.x = -40 + fo.t * 20;
     });
   }
   const creaForme = Lezione.simula({
@@ -63,22 +62,19 @@
       const geo = griglia(FU, FV, () => [0, 0, 0]);
       t.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 })));
       t.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xEEF2F8, wireframe: true, transparent: true, opacity: 0.22 })));
-      g.add(segmento(new THREE.Vector3(-42, 2, 0), new THREE.Vector3(42, 2, 0), 0.12 * k, COL.inchiostro));
-      FORME.forEach((f, i) => { const e = etichetta(f.nome, 2 + k * 0.6); e.position.set(-40 + i * 20, -1, 0); g.add(e); });
-      const presa = maniglia(1.6 * Math.sqrt(k), 'forma'); presa.position.set(-40, 2, 0); g.add(presa); tocca(presa);
-      fo.copie.push({ geo, presa });
+      fo.copie.push({ geo });
       return g;
     },
-    trascina(id, dx) {
-      const prima = Math.round(fo.t);
-      fo.t = Math.max(0, Math.min(4, fo.t + dx * 0.011));
-      posaForme();
-      if (Math.round(fo.t) !== prima) Motore.ridisegna();
-    },
   });
+  function comandiForme(id) {
+    const t = Lezione.letto(id, 'forma', 0, 4);
+    if (typeof t !== 'number') return false;
+    fo.t = t; posaForme(); Motore.sporco();
+    return true;
+  }
 
   /* Simulazione 2: il punto sul globo ------------------------------------------------------- */
-  const g1 = { fi: 42, la: 12, verso: 1, copie: [] }; const R = 30; const CY = 34;
+  const g1 = { fi: 42, la: 12, verso: 1, rot: -(12 * Math.PI) / 180, prende: false, copie: [] }; const R = 30; const CY = 34;
   const rad = (a) => (a * Math.PI) / 180;
   const cardFi = (v) => (Math.round(v) === 0 ? '0°' : `${Math.abs(Math.round(v))}° ${v > 0 ? 'N' : 'S'}`);
   const cardLa = (v) => (Math.round(v) === 0 ? '0°' : Math.abs(Math.round(v)) === 180 ? '180°' : `${Math.abs(Math.round(v))}° ${v > 0 ? 'E' : 'W'}`);
@@ -96,7 +92,7 @@
     const f = rad(g1.fi); const l = rad(g1.la);
     const p = [R * Math.cos(f) * Math.sin(l), R * Math.sin(f), R * Math.cos(f) * Math.cos(l)];
     g1.copie.forEach((c) => {
-      c.terra.rotation.y = -l; // il punto resta davanti a chi guarda: gira la Terra
+      c.terra.rotation.y = g1.rot; // il globo porta il punto davanti a chi guarda, ma non mentre lo si sposta
       c.presa.position.set(p[0] * 1.05, p[1] * 1.05, p[2] * 1.05);
       const rp = Math.cos(f) * R;
       c.parallelo.position.y = R * Math.sin(f); c.parallelo.scale.set(rp, rp, R);
@@ -128,16 +124,40 @@
       const gr = etichetta('Greenwich', dim, '#B3362B'); gr.position.set(0, 12, R + 3); terra.add(gr);
       const eq = etichetta('equatore', dim, '#8C7020'); eq.position.set(R + 3, 2, 0); terra.add(eq);
       const presa = maniglia(1.3 * Math.sqrt(k), 'punto'); terra.add(presa); tocca(presa);
+      presa.userData.vincolo = { sfera: { centro: [0, CY, 0], r: R * 1.05 } }; // il punto corre sulla superficie
       g1.copie.push({ terra, parallelo, meridiano, presa });
       return g;
     },
-    trascina(id, dx, dy) {
+    trascina(id, dx, dy, info) {
       const prima = `${cardFi(g1.fi)}|${cardLa(g1.la)}`;
-      const evento = muoviGlobo(-dy * 0.2, dx * 0.2);
+      let evento;
+      if (info) {
+        // Dal punto indicato a latitudine e longitudine, nel riferimento del globo
+        g1.prende = true;
+        const x = info.p.x; const y = info.p.y - CY; const z = info.p.z; const r = Math.hypot(x, y, z);
+        const c = Math.cos(-g1.rot); const s1 = Math.sin(-g1.rot);
+        const lx = x * c + z * s1; const lz = -x * s1 + z * c;
+        const fi = (Math.asin(Math.max(-1, Math.min(1, y / r))) * 180) / Math.PI;
+        const la = (Math.atan2(lx, lz) * 180) / Math.PI;
+        // Salto di longitudine: vicino a un polo lo si è scavalcato, altrove si è passato l'antimeridiano (slide 21)
+        const salto = Math.abs(la - g1.la);
+        if (salto > 90 && Math.max(Math.abs(fi), Math.abs(g1.fi)) > 70) lez.completa('polo');
+        else if (salto > 180) lez.completa('anti');
+        evento = muoviGlobo((fi - g1.fi) * g1.verso, la - g1.la) || salto > 90;
+      } else evento = muoviGlobo(-dy * 0.2, dx * 0.2);
       if (evento || `${cardFi(g1.fi)}|${cardLa(g1.la)}` !== prima) Motore.ridisegna();
+    },
+    frame(dt) {
+      if (g1.prende) return false;
+      // Dopo il rilascio il globo gira fino a portare il punto davanti
+      const meta = -rad(g1.la); let d = meta - g1.rot; d = Math.atan2(Math.sin(d), Math.cos(d));
+      if (Math.abs(d) < 0.002) { if (g1.rot === meta) return false; g1.rot = meta; posaGlobo(); return true; }
+      g1.rot += d * (1 - Math.exp(-dt * 4)); posaGlobo();
+      return true;
     },
   });
   function comandiGlobo(id) {
+    if (id === 'lascia:punto') g1.prende = false;
     if (id === 'fi+') muoviGlobo(5, 0);
     if (id === 'fi-') muoviGlobo(-5, 0);
     if (id === 'la+') muoviGlobo(0, 15);
@@ -197,12 +217,13 @@
       punta.rotation.x = Math.PI / 2; punta.position.set(0, 3, -10); vento.add(punta);
       g.add(vento);
       const presa = maniglia(2 * Math.sqrt(k), 'vento'); g.add(presa); tocca(presa);
+      presa.userData.vincolo = { giro: [0, 1, 0], centro: [0, 3, 0] };
       ro.copie.push({ vento, presa });
       return g;
     },
-    trascina(id, dx) {
+    trascina(id, dx, dy, info) {
       const prima = settore();
-      ro.g += dx * 0.45;
+      ro.g += info ? -(info.ang * 180) / Math.PI : dx * 0.45; // la rosa si legge in senso orario, dall'alto
       posaRosa();
       if (settore() !== prima) Motore.ridisegna();
     },
@@ -233,13 +254,14 @@
         ],
       },
       {
-        passo: 0, mondo: creaForme,
+        passo: 0, mondo: creaForme, azione: comandiForme,
         sx: [
           { t: 'titolo', testo: 'Cinque forme' },
           { t: 'p', size: 38, testo: 'Si usa solo la forma con il livello di accuratezza necessario. {{slide 12}}' },
+          { ...Lezione.cursore('forma', 'Dalla Terra reale al foglio', f.nome, fo.t, 0, 4, FORME[0].nome, FORME[4].nome), tacche: [0, 0.25, 0.5, 0.75, 1] },
           { t: 'riquadro', size: 38, testo: `**${f.nome}.** ${f.testo}` },
           ...(Math.round(fo.t) === 2 ? [{ t: 'formula', testo: '(X² + Y²) / a² + Z² / b² = 1' }] : []),
-          { t: 'nota', testo: 'Trascina la sfera d\'oro lungo la riga. Deformazioni e schiacciamento sono esagerati per vederli.' },
+          { t: 'nota', testo: 'Fai scorrere il cursore. Deformazioni e schiacciamento sono esagerati per vederli.' },
         ],
         dx: Lezione.finestra(760),
       },
@@ -270,7 +292,7 @@
         ],
         dx: [
           ...Lezione.finestra(760),
-          { t: 'nota', testo: 'Trascina la sfera d\'oro: è il punto. Oro: il suo parallelo e il suo meridiano. Rosso: Greenwich. Il globo è un reticolato, senza continenti.' },
+          { t: 'nota', testo: 'Trascina la sfera d\'oro sul globo: è il punto. Al rilascio il globo lo porta davanti a te. Oro: il suo parallelo e il suo meridiano. Rosso: Greenwich. Il globo è un reticolato, senza continenti.' },
         ],
       },
       {
@@ -348,7 +370,7 @@
           { t: 'titolo', testo: 'Che vento soffia?' },
           { t: 'passo', id: 'v', nome: 'Direzione', valore: v[1] },
           { t: 'riquadro', size: 40, testo: `**${v[0]}** (${v[1]}). ${v[2]} {{slide 27}}` },
-          { t: 'nota', testo: 'Trascina la sfera d\'oro intorno alla rosa: la freccia rossa è il vento che arriva da lì.' },
+          { t: 'nota', testo: 'Gira la sfera d\'oro intorno alla rosa: la freccia rossa è il vento che arriva da lì.' },
         ],
         dx: Lezione.finestra(760),
       },

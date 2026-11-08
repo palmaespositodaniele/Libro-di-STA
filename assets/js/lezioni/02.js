@@ -41,7 +41,6 @@
       c.nave.position.y = f * 4.2; c.nave.rotation.z = f * 0.07;
       c.idro.scale.y = Math.max(0.01, (1 - f) * 22); c.idro.position.y = c.idro.scale.y / 2;
       c.dina.scale.y = Math.max(0.01, f * 22); c.dina.position.y = c.idro.scale.y + c.dina.scale.y / 2;
-      c.presa.position.x = -8 + (so.v / 60) * 106;
     });
   }
   const creaCarena = Lezione.simula({
@@ -56,21 +55,17 @@
       const idro = bar(COL.acqua); const dina = bar(COL.ocra); colonna.add(idro, dina); g.add(colonna);
       const e1 = etichetta('idrostatica', dim, '#FBFAF4'); e1.position.set(-16, 26, 6); g.add(e1);
       const e2 = etichetta('idrodinamica', dim, '#8C7020'); e2.position.set(-16, 30, 6); g.add(e2);
-      g.add(segmento(new THREE.Vector3(-8, 24, 12), new THREE.Vector3(98, 24, 12), 0.2 * Math.sqrt(k), COL.inchiostro));
-      const presa = maniglia(1.5 + k * 0.5, 'v'); presa.position.set(-8, 24, 12); g.add(presa); tocca(presa);
-      so.copie.push({ nave: perno, idro, dina, presa });
+      so.copie.push({ nave: perno, idro, dina });
       return g;
-    },
-    trascina(id, dx) {
-      const prima = `${Math.round(so.v)}|${statoCarena()[0]}`;
-      so.v = Math.max(0, Math.min(60, so.v + dx * 0.09));
-      posaCarena();
-      if (so.v >= limiteHSC()) lez.completa('hsc');
-      if (quotaS() > 0.5) lez.completa('planante');
-      if (`${Math.round(so.v)}|${statoCarena()[0]}` !== prima) Motore.ridisegna();
     },
   });
   function comandiCarena(id) {
+    const v = Lezione.letto(id, 'v', 0, 60, 1);
+    if (typeof v === 'number') {
+      so.v = v;
+      if (so.v >= limiteHSC()) lez.completa('hsc');
+      if (quotaS() > 0.5) lez.completa('planante');
+    }
     if (id === 'd+') so.d = Math.min(DISLOCAMENTI.length - 1, so.d + 1);
     if (id === 'd-') so.d = Math.max(0, so.d - 1);
     posaCarena(); Motore.sporco();
@@ -89,7 +84,6 @@
       c.nave.position.y = f * 4.2; c.nave.rotation.z = f * 0.07;
       c.idro.scale.y = Math.max(0.01, (1 - f) * 22); c.idro.position.y = c.idro.scale.y / 2;
       c.dina.scale.y = Math.max(0.01, f * 22); c.dina.position.y = c.idro.scale.y + c.dina.scale.y / 2;
-      c.presa.position.x = -20 + (va.v / VMAX) * 130;
       c.prua.forEach((o) => { o.scale.set(0.2 + (va.v / VMAX) * 1.6, 1, 0.2 + (va.v / VMAX) * 2.2); o.visible = va.v > 0.5; });
     });
   }
@@ -131,18 +125,8 @@
       const e0 = etichetta('Δ', dim + 1, '#0B2545'); e0.position.set(45, 61, -30); g.add(e0);
       const e1 = etichetta('idrostatica ρ·∇', dim, '#0B2545'); e1.position.set(82, 40, -30); g.add(e1);
       const e2 = etichetta('idrodinamica S', dim, '#8C7020'); e2.position.set(82, 52, -30); g.add(e2);
-      // Manetta del carro
-      g.add(segmento(new THREE.Vector3(-20, 44, 30), new THREE.Vector3(110, 44, 30), 0.25 * Math.sqrt(k), COL.inchiostro));
-      const e3 = etichetta('velocità del carro', dim, '#0B2545'); e3.position.set(38, 50, 30); g.add(e3);
-      const presa = maniglia(2 + k * 0.5, 'v'); presa.position.set(-20, 44, 30); g.add(presa); tocca(presa);
-      va.copie.push({ nave: perno, idro, dina, presa, prua, tacche, creste });
+      va.copie.push({ nave: perno, idro, dina, prua, tacche, creste });
       return g;
-    },
-    trascina(id, dx) {
-      const prima = Math.round(va.v);
-      va.v = Math.max(0, Math.min(VMAX, va.v + dx * 0.09));
-      posaVasca();
-      if (Math.round(va.v) !== prima) Motore.ridisegna();
     },
     frame(dt) {
       if (va.v < 0.5 && va.scia <= 0) return false;
@@ -161,10 +145,9 @@
   });
   function comandiVasca(id) {
     if (id === 'd+' || id === 'd-') { comandiCarena(id); va.misure = []; }
-    if (id === 'v+') va.v = Math.min(VMAX, Math.round(va.v) + 1);
-    if (id === 'v-') va.v = Math.max(0, Math.round(va.v) - 1);
+    const v = Lezione.letto(id, 'v', 0, VMAX, 1);
+    if (typeof v === 'number') va.v = v;
     if (id === 'svuota') va.misure = [];
-    if (id.startsWith('lascia:')) va.v = Math.round(va.v);
     if (id === 'registra') {
       const v = Math.round(va.v);
       va.misure = va.misure.filter((m) => m.v !== v).concat([{ v, q: quota(v) }]).sort((a, b) => a.v - b.v);
@@ -179,7 +162,7 @@
     const ox = x + 70; const oy = y + h - 50; const gw = w - 90; const gh = h - 100;
     const X = (v) => ox + (v / VMAX) * gw; const Y = (f) => oy - f * gh;
     c.strokeStyle = C.ink2; c.lineWidth = 2; c.strokeRect(ox, oy - gh, gw, gh);
-    c.font = font('n', 28); c.fillStyle = C.ink2; c.textAlign = 'right';
+    c.font = font('n', 32); c.fillStyle = C.ink2; c.textAlign = 'right';
     [0, 50, 100].forEach((p) => c.fillText(`${p}%`, ox - 10, Y(p / 100) + 9));
     c.textAlign = 'center';
     [0, 20, 40].forEach((v) => c.fillText(String(v), X(v), oy + 34));
@@ -194,10 +177,10 @@
       c.beginPath(); va.misure.forEach((m, i) => { if (i) c.lineTo(X(m.v), Y(val(m))); else c.moveTo(X(m.v), Y(val(m))); }); c.stroke();
       va.misure.forEach((m) => { c.beginPath(); c.arc(X(m.v), Y(val(m)), 9, 0, Math.PI * 2); c.fill(); });
     });
-    c.textAlign = 'left'; c.font = font('b', 28);
+    c.textAlign = 'left'; c.font = font('b', 32);
     c.fillStyle = C.acqua; c.fillText('● idrostatica', ox, y + 26);
     c.fillStyle = C.ocraT; c.fillText('● idrodinamica', ox + 250, y + 26);
-    if (!va.misure.length) { c.fillStyle = C.ink2; c.font = font('n', 30); c.textAlign = 'center'; c.fillText('Nessuna misura registrata', ox + gw / 2, Y(0.75)); c.textAlign = 'left'; }
+    if (!va.misure.length) { c.fillStyle = C.ink2; c.font = font('n', 32); c.textAlign = 'center'; c.fillText('Nessuna misura registrata', ox + gw / 2, Y(0.75)); c.textAlign = 'left'; }
   }
 
   /* Simulazione 2: in quale categoria? -------------------------------------------------------- */
@@ -212,13 +195,13 @@
     ['Rompighiaccio', 's', 'Lo scopo non è il trasporto ma un\'attività in mare.'],
     ['Nave da crociera', 'p', 'Trasporta più di 12 persone oltre l\'equipaggio.'],
   ];
-  const ca = { i: 0, x: 0, esito: null, copie: [] };
+  const ca = { i: 0, x: 0, z: 0, esito: null, copie: [] };
   const XC = (i) => -44 + i * 22;
   function posaCarta() {
     ca.copie.forEach((c) => {
       c.nomi.forEach((e, i) => { e.visible = i === ca.i; });
       c.barca.visible = ca.i < CARTE.length;
-      c.barca.position.x = ca.x; c.presa.position.x = ca.x; c.presa.visible = ca.i < CARTE.length;
+      c.barca.position.set(ca.x, 0, 14 + ca.z); c.presa.position.set(ca.x, 5, 14 + ca.z); c.presa.visible = ca.i < CARTE.length;
       c.fatte.forEach((m, i) => { m.visible = i < ca.i; });
     });
   }
@@ -230,7 +213,7 @@
       ca.i += 1;
       if (ca.i === CARTE.length) lez.completa('carte');
     } else ca.esito = { tipo: 'errato', testo: `${nome} non va lì: riprova.` };
-    ca.x = 0; posaCarta();
+    ca.x = 0; ca.z = 0; posaCarta();
   }
   const creaCarte = Lezione.simula({
     scala: 0.0105, centro: [0, 2], k: 3, pedana: [0, 44, 'al largo'], dopo: posaCarta,
@@ -245,19 +228,25 @@
       const barca = new THREE.Group(); const sc = Scafo.crea(k); sc.scale.setScalar(0.17); sc.position.set(-7.6, -1, 0); barca.add(sc); barca.position.z = 14; g.add(barca);
       const nomi = CARTE.map(([t]) => { const e = etichetta(t, dim + 1, '#0B2545'); e.position.set(0, 9, 14); g.add(e); return e; });
       const presa = maniglia(1.6 + k * 0.4, 'carta'); presa.position.set(0, 5, 14); g.add(presa); tocca(presa);
+      presa.userData.vincolo = { piano: [0, 1, 0] }; // la nave si porta sull'acqua fino alla banchina
       const fatte = CARTE.map((c, i) => { const m = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 2.4), new THREE.MeshBasicMaterial({ color: 0xFBFAF4 })); const q = CESTE.findIndex(([id]) => id === c[1]); m.position.set(XC(q) - 3 + (i % 3) * 3.4, 2, -14 + (i % 2) * 3); g.add(m); return m; });
       ca.copie.push({ barca, presa, nomi, fatte });
       return g;
     },
-    trascina(id, dx) { ca.x = Math.max(-54, Math.min(54, ca.x + dx * 0.1)); posaCarta(); },
+    trascina(id, dx, dy, info) {
+      if (info) { ca.x += info.v.x; ca.z += info.v.z; } else ca.x += dx * 0.1;
+      ca.x = Math.max(-54, Math.min(54, ca.x)); ca.z = Math.max(-28, Math.min(8, ca.z));
+      posaCarta();
+    },
   });
   function comandiCarte(id) {
     if (id.startsWith('t:')) assegna(id.slice(2).split(',')[0]);
-    if (id === 'lascia:carta' && Math.abs(ca.x) > 3) {
+    if (id === 'lascia:carta' && (Math.abs(ca.x) > 3 || ca.z < -8)) {
       let vic = 0; CESTE.forEach((c, i) => { if (Math.abs(XC(i) - ca.x) < Math.abs(XC(vic) - ca.x)) vic = i; });
       assegna(CESTE[vic][0]);
     }
-    if (id === 'daccapo') { ca.i = 0; ca.esito = null; ca.x = 0; posaCarta(); }
+    if (id === 'lascia:carta' && ca.i < CARTE.length && (ca.x || ca.z)) { ca.x = 0; ca.z = 0; posaCarta(); }
+    if (id === 'daccapo') { ca.i = 0; ca.esito = null; ca.x = 0; ca.z = 0; posaCarta(); }
     Motore.sporco();
   }
 
@@ -291,12 +280,13 @@
       const linee = [[3, '3 NM', true], [6, '6 NM', true], [20, '20 NM', true], [20, '20 NM', false], [200, '200 NM', false]].map(([d, t, naz]) => { const q = linea(d, t); g.add(q); return [q, naz]; });
       const nave = new THREE.Group(); const sc = Scafo.crea(k); sc.scale.setScalar(0.26); sc.position.set(-12, -1.5, 0); nave.add(sc); g.add(nave);
       const presa = maniglia(3 + k * 0.5, 'd'); presa.position.set(0, 12, 0); nave.add(presa); tocca(presa);
+      presa.userData.vincolo = { asse: [1, 0, 0] }; // la nave si allontana dalla costa
       es.copie.push({ nave, linee });
       return g;
     },
-    trascina(id, dx) {
+    trascina(id, dx, dy, info) {
       const prima = nomeNavigazione()[0]; const pd = Math.round(es.d);
-      const x = Math.max(XD(1), Math.min(XD(320), XD(es.d) + dx * 0.16));
+      const x = Math.max(XD(1), Math.min(XD(320), XD(es.d) + (info ? info.s : dx * 0.16)));
       es.d = 2 ** ((x + 10) / 24) - 1;
       posaEstensione();
       if (nomeNavigazione()[0] !== prima || Math.round(es.d) !== pd) Motore.ridisegna();
@@ -334,12 +324,13 @@
         const e = etichetta(t, dim + 2, '#FBFAF4'); e.position.set(x, 2.5, 12); g.add(e);
       });
       const presa = maniglia(1 + k * 0.3, 'L'); presa.position.set(0, 3, 0); g.add(presa); tocca(presa);
+      presa.userData.vincolo = { asse: [1, 0, 0] }; // la sfera sta sulla prua: tirandola lo scafo si allunga
       di.copie.push({ barca, presa });
       return g;
     },
-    trascina(id, dx) {
+    trascina(id, dx, dy, info) {
       const prima = `${Math.round(di.L)}|${nomeDiporto()[0]}`;
-      di.L = Math.max(3, Math.min(60, di.L + dx * 0.045));
+      di.L = Math.max(3, Math.min(60, di.L + (info ? 2 * info.s : dx * 0.045)));
       posaDiporto();
       if (`${Math.round(di.L)}|${nomeDiporto()[0]}` !== prima) Motore.ridisegna();
     },
@@ -389,13 +380,14 @@
           ...(p ? [{ t: 'nota', testo: `La tua previsione: ${RISPOSTE[p]}.` }] : []),
           { t: 'sotto', testo: 'Dai velocità alla nave' },
           { t: 'passo', id: 'd', nome: 'Dislocamento Δ', valore: `${DISLOCAMENTI[so.d].toLocaleString('it-IT')} t` },
+          Lezione.cursore('v', 'Velocità', `${Math.round(so.v)} kn`, so.v, 0, 60),
           { t: 'formula', testo: `v ≥ 7,16 · Δ^(1/6) = ${num(limiteHSC())} kn` },
           { t: 'riquadro', size: 38, testo: `**${Math.round(so.v)} kn. ${st[0]}**: ${st[1]} {{slide 3–6}}` },
           ...lez.missioni().slice(0, 2),
         ],
         dx: [
           ...Lezione.finestra(760),
-          { t: 'nota', testo: 'Trascina la sfera d\'oro lungo la riga per accelerare. Il limite HSC è la formula della slide 5; la quota di spinta e il sollevamento sono schematici.' },
+          { t: 'nota', testo: 'Fai scorrere la velocità sulla pagina. Il limite HSC è la formula della slide 5; la quota di spinta e il sollevamento sono schematici.' },
         ],
       },
       {
@@ -403,7 +395,7 @@
         sx: [
           { t: 'sotto', testo: 'In laboratorio: la vasca navale' },
           { t: 'passo', id: 'd', nome: 'Dislocamento Δ', valore: `${DISLOCAMENTI[so.d].toLocaleString('it-IT')} t` },
-          { t: 'passo', id: 'v', nome: 'Velocità del carro', valore: `${Math.round(va.v)} kn` },
+          Lezione.cursore('v', 'Velocità del carro', `${Math.round(va.v)} kn`, va.v, 0, VMAX),
           { t: 'riquadro', size: 34, testo: `Idrostatica **${pc(1 - quota(va.v))}**, idrodinamica **${pc(quota(va.v))}** di Δ. Volume immerso: ${pc(1 - quota(va.v))} di quello da fermo. {{slide 4}}` },
           { t: 'bottoni', h: 84, size: 32, lista: [{ id: 'registra', testo: 'Registra la misura', on: true }, { id: 'svuota', testo: 'Cancella' }] },
           { t: 'disegno', h: 360, fn: grafico },
