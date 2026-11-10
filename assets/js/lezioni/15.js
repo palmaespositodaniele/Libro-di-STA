@@ -184,21 +184,21 @@
     c.strokeStyle = '#C9D3DF'; c.lineWidth = 2;
     for (let i = 0; i <= 100; i += 10) { c.beginPath(); c.moveTo(X(i), 0); c.lineTo(X(i), CH); c.stroke(); }
     for (let j = 0; j <= 66; j += 10) { c.beginPath(); c.moveTo(0, Y(j)); c.lineTo(CW, Y(j)); c.stroke(); }
-    c.fillStyle = '#5B6B7C'; c.font = '36px Atkinson, sans-serif'; c.fillText('1 quadretto = 10 NM', 20, CH - 22);
-    c.font = '700 44px Bitter, Georgia, serif'; c.fillText('N ↑', CW - 110, 60);
+    c.fillStyle = '#5B6B7C'; c.font = '52px Atkinson, sans-serif'; c.fillText('1 quadretto = 10 NM', 20, CH - 24);
+    c.font = '700 62px Bitter, Georgia, serif'; c.fillText('N ↑', CW - 150, 74);
     const [A, B] = navi(); const tf = ct.corre || ct.finito ? ct.t : 0;
     [[A, '#C9A227', 'A'], [B, '#B3362B', 'B']].forEach(([n, col, nome]) => {
       const p0 = n.p; const p1 = dove(n, tf);
       c.strokeStyle = col; c.lineWidth = 10; c.beginPath(); c.moveTo(X(p0[0]), Y(p0[1])); c.lineTo(X(p1[0]), Y(p1[1])); c.stroke();
       if (!ct.corre && !ct.finito) { c.setLineDash([16, 12]); c.lineWidth = 5; const pf = dove(n, n.t0 + 8); c.beginPath(); c.moveTo(X(p0[0]), Y(p0[1])); c.lineTo(X(pf[0]), Y(pf[1])); c.stroke(); c.setLineDash([]); }
-      c.fillStyle = col; c.font = '700 34px Atkinson, sans-serif';
-      for (let h = Math.ceil(n.t0); h <= tf; h++) { const q = dove(n, h); c.beginPath(); c.arc(X(q[0]), Y(q[1]), 13, 0, Math.PI * 2); c.fill(); c.fillText(oraCarta(h).slice(0, 2), X(q[0]) + 14, Y(q[1]) + (nome === 'A' ? -18 : 42)); }
+      c.fillStyle = col; c.font = '700 48px Atkinson, sans-serif';
+      for (let h = Math.ceil(n.t0); h <= tf; h++) { const q = dove(n, h); c.beginPath(); c.arc(X(q[0]), Y(q[1]), 13, 0, Math.PI * 2); c.fill(); c.fillText(oraCarta(h).slice(0, 2), X(q[0]) + 16, Y(q[1]) + (nome === 'A' ? -22 : 58)); }
       // La nave: triangolo nel verso della rotta
       const a = (n.r * Math.PI) / 180; c.save(); c.translate(X(p1[0]), Y(p1[1])); c.rotate(a);
       c.beginPath(); c.moveTo(0, -40); c.lineTo(22, 24); c.lineTo(-22, 24); c.closePath(); c.fill(); c.restore();
-      c.font = '700 54px Atkinson, sans-serif'; c.fillText(nome, X(p1[0]) + 24, Y(p1[1]) - 22);
+      c.font = '700 72px Atkinson, sans-serif'; c.textAlign = 'right'; c.fillText(nome, X(p1[0]) - 34, Y(p1[1]) + (nome === 'A' ? -30 : 100)); c.textAlign = 'left'; // a sinistra della nave: a destra ci sono le ore
     });
-    if (ct.prova === 'es15') { c.fillStyle = '#0B2545'; c.font = '32px Atkinson, sans-serif'; c.fillText('porto', X(10) - 40, Y(33) + 52); }
+    if (ct.prova === 'es15') { c.fillStyle = '#0B2545'; c.font = '48px Atkinson, sans-serif'; c.fillText('porto', X(10) - 60, Y(33) + 160); }
     c.strokeStyle = '#0B2545'; c.lineWidth = 6; c.strokeRect(3, 3, CW - 6, CH - 6);
     texCarta.needsUpdate = true;
     posaPrua();

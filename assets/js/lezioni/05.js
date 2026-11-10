@@ -141,7 +141,7 @@
     });
   }
 
-  const VISTA = () => ({ target: new THREE.Vector3(L / 2, 1.6, 0), theta: 0.7, phi: 1.2, r: 34 });
+  const VISTA = () => ({ target: new THREE.Vector3(L / 2, 1.6, 0), theta: 0.7, phi: 1.2, r: 39 });
   let mondo = null; let entra = { fatti: -1, t: 1 };
   function creaMondo() {
     if (mondo) return mondo;

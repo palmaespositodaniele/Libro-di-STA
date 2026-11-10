@@ -214,7 +214,7 @@
     const c = telaLente.getContext('2d');
     c.fillStyle = C.carta; c.fillRect(0, 0, LW, LH);
     const barra = (y, nome, v, col) => {
-      c.fillStyle = C.ink; c.font = '700 34px Atkinson, sans-serif'; c.fillText(nome, 20, y + 34);
+      c.fillStyle = C.ink; c.font = '700 36px Atkinson, sans-serif'; c.fillText(nome, 20, y + 34);
       c.fillStyle = C.carta2; c.fillRect(400, y, 600, 56);
       c.fillStyle = col; c.fillRect(400, y, 600 * Math.max(0, Math.min(1, v)), 56);
       c.strokeStyle = C.ink; c.lineWidth = 3; c.strokeRect(400, y, 600, 56);
@@ -224,13 +224,13 @@
     barra(120, 'Spinta', spinta(), C.ink2);
     c.strokeStyle = C.ocra; c.lineWidth = 5; c.setLineDash([12, 8]); c.beginPath();
     c.moveTo(400 + 600 * SOGLIA, 14); c.lineTo(400 + 600 * SOGLIA, 100); c.stroke(); c.setLineDash([]);
-    c.fillStyle = C.ocraT; c.font = '32px Disegno, cursive'; c.fillText('sotto questa linea l\'acqua diventa vapore', 400, 216);
-    c.fillStyle = C.ink2; c.font = '32px Disegno, cursive'; c.fillText('livelli schematici, senza valori', 20, 268);
+    c.fillStyle = C.ocraT; c.font = '36px Disegno, cursive'; c.fillText('sotto questa linea l\'acqua diventa vapore', 400, 216, LW - 420);
+    c.fillStyle = C.ink2; c.font = '36px Disegno, cursive'; c.fillText('livelli schematici, senza valori', 20, 268);
     c.strokeStyle = C.ink; c.lineWidth = 4; c.strokeRect(2, 2, LW - 4, LH - 4);
     texLente.needsUpdate = true;
   }
 
-  const VISTA = () => ({ target: new THREE.Vector3(0, 5, 0), theta: 0.7, phi: 1.3, r: 21 });
+  const VISTA = () => ({ target: new THREE.Vector3(0, 5.6, 0), theta: 0.7, phi: 1.3, r: 24 });
   let mondo = null;
   function creaMondo() {
     if (mondo) return mondo;

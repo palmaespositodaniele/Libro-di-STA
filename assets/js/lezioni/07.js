@@ -111,14 +111,14 @@
   function disegnaLente() {
     const c = telaLente.getContext('2d'); const pr = presenti(); const an = anodo();
     c.fillStyle = C.carta; c.fillRect(0, 0, LW, LH);
-    c.fillStyle = C.ink; c.font = '700 32px Atkinson, sans-serif'; c.fillText('Estremità catodica o nobile', 18, 36);
+    c.fillStyle = C.ink; c.font = '700 36px Atkinson, sans-serif'; c.fillText('Estremità catodica o nobile', 18, 36);
     SERIE.forEach((nome, i) => {
       const col = i < 9 ? 0 : 1; const x = 18 + col * 510; const y = 76 + (col ? i - 9 : i) * 44;
       const qui = pr.find((p) => p.m.r === i);
       if (qui) { c.fillStyle = an && an.m.r === i ? C.ocra : 'rgba(74,118,168,0.3)'; c.fillRect(x - 6, y - 28, 494, 40); }
-      c.fillStyle = C.ink; c.font = `${qui ? '700 ' : ''}32px Atkinson, sans-serif`; c.fillText(nome, x, y);
+      c.fillStyle = C.ink; c.font = `${qui ? '700 ' : ''}36px Atkinson, sans-serif`; c.fillText(nome, x, y, 482);
     });
-    c.fillStyle = C.ink; c.font = '700 32px Atkinson, sans-serif'; c.fillText('Estremità anodica o ignobile', 528, 76 + 8 * 44);
+    c.fillStyle = C.ink; c.font = '700 36px Atkinson, sans-serif'; c.fillText('Estremità anodica o ignobile', 528, 76 + 8 * 44);
     c.strokeStyle = C.ink; c.lineWidth = 4; c.strokeRect(2, 2, LW - 4, LH - 4);
     texLente.needsUpdate = true;
   }

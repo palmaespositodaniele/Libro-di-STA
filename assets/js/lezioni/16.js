@@ -111,7 +111,7 @@
   }
   const creaGlobo = Lezione.simula({
     scala: 0.0085, centro: [0, 34], mare: false, k: 3, pedana: [0, 72, 'davanti al globo'], dopo: posaGlobo,
-    vista: () => ({ target: new THREE.Vector3(0, 34, 0), theta: 0, phi: 1.5, r: 112 }),
+    vista: () => ({ target: new THREE.Vector3(0, 34, 0), theta: 0, phi: 1.5, r: 128 }),
     modello(k, tocca) {
       const g = new THREE.Group(); const terra = new THREE.Group(); terra.position.y = CY; g.add(terra);
       terra.add(new THREE.Mesh(new THREE.SphereGeometry(R, 48, 32), new THREE.MeshBasicMaterial({ map: texGlobo() })));
@@ -120,7 +120,7 @@
       const parallelo = new THREE.Mesh(new THREE.TorusGeometry(1.01, 0.008 * Math.sqrt(k), 6, 64), oro); parallelo.rotation.x = Math.PI / 2; terra.add(parallelo);
       const meridiano = new THREE.Group(); const arco = new THREE.Mesh(new THREE.TorusGeometry(R * 1.01, 0.24 * Math.sqrt(k), 6, 48, Math.PI), oro); arco.rotation.z = -Math.PI / 2; meridiano.add(arco); terra.add(meridiano);
       const dim = 3 + k;
-      [['Polo Nord', 0, R + 10, 0, '#0B2545'], ['Polo Sud', 0, -R - 10, 0, '#0B2545']].forEach(([t, x, y, z, col]) => { const e = etichetta(t, dim, col); e.position.set(x, y, z); terra.add(e); });
+      [['Polo Nord', 0, R + 5, 0, '#0B2545'], ['Polo Sud', 0, -R - 5, 0, '#0B2545']].forEach(([t, x, y, z, col]) => { const e = etichetta(t, dim, col); e.position.set(x, y, z); terra.add(e); });
       const gr = etichetta('Greenwich', dim, '#B3362B'); gr.position.set(0, 12, R + 3); terra.add(gr);
       const eq = etichetta('equatore', dim, '#8C7020'); eq.position.set(R + 3, 2, 0); terra.add(eq);
       const presa = maniglia(1.3 * Math.sqrt(k), 'punto'); terra.add(presa); tocca(presa);
@@ -188,7 +188,7 @@
         c.fillStyle = i % 2 ? '#E3C878' : '#13315C'; c.beginPath(); c.moveTo(0, -l); c.lineTo(-46, -46); c.lineTo(0, 0); c.closePath(); c.fill();
         c.restore();
       }
-      c.fillStyle = '#0B2545'; c.font = '700 40px Atkinson, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillStyle = '#0B2545'; c.font = '700 52px Atkinson, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
       VENTI.forEach(([n], i) => {
         c.save(); c.translate(O, O); c.rotate((i * Math.PI) / 4); c.fillText(n.split(' ')[0], 0, -420); c.restore();
       });

@@ -158,7 +158,7 @@ window.Motore = (function () {
     c.fillStyle = '#0B2545'; c.fillRect(0, 0, 600, 820);
     c.fillStyle = '#FBFAF4'; c.textAlign = 'center';
     c.font = '700 54px Bitter, Georgia, serif'; c.fillText('Solleva l\'aletta', 300, 400);
-    c.font = '34px Atkinson, sans-serif'; c.fillText('Dentro c\'è la risposta', 300, 460);
+    c.font = '36px Atkinson, sans-serif'; c.fillText('Dentro c\'è la risposta', 300, 460);
     c.strokeStyle = '#FBFAF4'; c.lineWidth = 3; c.strokeRect(30, 30, 540, 760);
   });
   const aletta = new THREE.Mesh(new THREE.PlaneGeometry(PW * 0.98, PH * 0.98), new THREE.MeshBasicMaterial({ map: alettaTex, side: THREE.DoubleSide, transparent: true }));
@@ -189,6 +189,27 @@ window.Motore = (function () {
   const orbita = { target: new THREE.Vector3(), theta: 0.7, phi: 1.3, r: 100, meta: { target: new THREE.Vector3(), theta: 0.7, phi: 1.3, r: 100 } };
   let mondo = null; let mondoSporco = true;
   function vista(v) { Object.assign(orbita.meta, v); mondoSporco = true; }
+
+  /* Etichette del modello nella finestra: mai più piccole delle scritte della pagina (32 px di pagina),
+     comunque sia lontana la vista. A grandezza vera tornano alla loro misura */
+  let altoFinestra = 760; const vEt = new THREE.Vector3(); const sEt = new THREE.Vector3();
+  function etichetteLeggibili(si) {
+    if (!mondo) return;
+    const minimo = ((Pagina.MINIMO * 136) / 96 / altoFinestra) * 2; // altezza dell'etichetta, in frazione della finestra
+    const p5 = mondoCam.projectionMatrix.elements[5];
+    mondoCam.updateMatrixWorld(); mondoCam.matrixWorldInverse.copy(mondoCam.matrixWorld).invert();
+    mondo.radice.traverse((o) => {
+      if (!o.isSprite) return;
+      const base = o.userData.scalaBase || (o.userData.scalaBase = o.scale.clone());
+      o.scale.copy(base);
+      if (!si) return;
+      o.updateWorldMatrix(true, false);
+      const d = -vEt.setFromMatrixPosition(o.matrixWorld).applyMatrix4(mondoCam.matrixWorldInverse).z;
+      if (d <= 0) return;
+      const h = (o.getWorldScale(sEt).y * p5) / d;
+      if (h < minimo) o.scale.multiplyScalar(minimo / h);
+    });
+  }
 
   function usaMondo(m) {
     if (mondo === m) return;
@@ -238,7 +259,7 @@ window.Motore = (function () {
     const zf = att.dx.zone.find((z) => z.id === 'finestra');
     const zl = att.dx.zone.find((z) => z.id === 'lente');
     finestra.visible = !!zf && !presente && !giro;
-    if (zf) { piazza(finestra, zf); mondoCam.aspect = zf.w / zf.h; mondoCam.updateProjectionMatrix(); mondoSporco = true; }
+    if (zf) { piazza(finestra, zf); altoFinestra = zf.h; mondoCam.aspect = zf.w / zf.h; mondoCam.updateProjectionMatrix(); mondoSporco = true; }
     lente.visible = !!zl && !giro && !!mondo && !!mondo.lente;
     if (zl && mondo && mondo.lente) { piazza(lente, zl); lente.material.map = mondo.lente(); lente.material.needsUpdate = true; }
     perno.visible = !!spread.aletta && !giro;
@@ -748,6 +769,7 @@ window.Motore = (function () {
     anello.visible = false;
     // Grandezza vera: la nave intorno allo studente, che si sposta sulle pedane
     if (vera) {
+      etichetteLeggibili(false);
       scene.add(mondo.radice);
       pedane = mondo.stazioni.map((s) => { s.pedana.userData.stazione = s; if (!s.pedana.parent) scene.add(s.pedana); s.pedana.visible = true; return s.pedana; });
       posa(mondo.stazioni[0]);
@@ -1085,6 +1107,7 @@ window.Motore = (function () {
         mondoCam.position.set(orbita.target.x + orbita.r * s * Math.sin(orbita.theta), orbita.target.y + orbita.r * Math.cos(orbita.phi), orbita.target.z + orbita.r * s * Math.cos(orbita.theta));
         mondoCam.lookAt(orbita.target);
         if (mondo.primaFinestra) mondo.primaFinestra(orbita.r);
+        etichetteLeggibili(true);
         renderer.setRenderTarget(rt);
         renderer.render(mondoScena, mondoCam);
         renderer.setRenderTarget(null);
@@ -1117,13 +1140,14 @@ window.Motore = (function () {
     presente: () => renderer.xr.isPresenting,
     scalaVera: () => vrScala === 'vera',
     sez: () => sez, indice: () => idx,
-    prove: { renderer, scene, att: () => att, agisci, camera, libro, controller, rig, giro: () => !!giro, leggio, sostegno, modellino, stanza, tavolo, mondo: () => mondo,
+    prove: { renderer, scene, att: () => att, agisci, camera, libro, controller, rig, giro: () => !!giro, leggio, sostegno, modellino, stanza, tavolo, mondo: () => mondo, camMondo: mondoCam, rt: () => rt,
       // Prova delle prese: punta la sfera dal centro della finestra, poi muove il puntatore a (x, y) in coordinate -1..1
       fissa() {
         const m = orbita.meta; Object.assign(orbita, { theta: m.theta, phi: m.phi, r: m.r }); orbita.target.copy(m.target);
         const s = Math.sin(orbita.phi);
         mondoCam.position.set(orbita.target.x + orbita.r * s * Math.sin(orbita.theta), orbita.target.y + orbita.r * Math.cos(orbita.phi), orbita.target.z + orbita.r * s * Math.cos(orbita.theta));
         mondoCam.lookAt(orbita.target); mondoCam.updateMatrixWorld();
+        etichetteLeggibili(true);
       },
       prendi(o) { mondoCam.updateMatrixWorld(); iniziaPresa({ maniglia: o.userData.maniglia, oggetto: o, punto: o.getWorldPosition(new THREE.Vector3()) }, {}); },
       punta(x, y) { ndcF.set(x, y); mondoCam.updateMatrixWorld(); rcM.setFromCamera(ndcF, mondoCam); muoviVincolo(rcM.ray); },

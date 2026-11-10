@@ -9,8 +9,9 @@ window.Pagina = (function () {
   };
   const TESTO = 44; // 2 cm sul libro in VR: mai meno di 34 per qualsiasi scritta
 
-  // Nessuna scritta sotto i 32 px, nemmeno le citazioni delle slide (design.md)
-  const MINIMO = 32; const stretti = [];
+  // Nessuna scritta sotto i 36 px, nemmeno le citazioni delle slide (design.md): su un portatile
+  // da 1366 px sono circa 12,5 px di schermo. Vale anche per le etichette dei modelli nella finestra
+  const MINIMO = 36; const stretti = [];
   function font(stile, s) {
     const size = Math.max(MINIMO, s);
     if (stile === 'b') return `700 ${size}px Atkinson, sans-serif`;
@@ -41,8 +42,8 @@ window.Pagina = (function () {
     return out;
   }
 
-  function righe(ctx, testo, size, larg) {
-    const lista = []; let riga = []; let x = 0;
+  function righe(ctx, testo, size0, larg) {
+    const size = Math.max(MINIMO, size0); const lista = []; let riga = []; let x = 0;
     ctx.font = font('n', size);
     const sp = ctx.measureText(' ').width;
     pezzi(testo).forEach((p) => {
@@ -54,8 +55,8 @@ window.Pagina = (function () {
     return lista;
   }
 
-  function scrivi(ctx, testo, x, y, size, larg, colore, centro) {
-    const lh = Math.round(size * 1.32);
+  function scrivi(ctx, testo, x, y, size0, larg, colore, centro) {
+    const size = Math.max(MINIMO, size0); const lh = Math.round(size * 1.32);
     ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
     righe(ctx, testo, size, larg).forEach((r, i) => {
       const w = r.length ? r[r.length - 1].x + r[r.length - 1].w : 0;
@@ -73,8 +74,10 @@ window.Pagina = (function () {
   // Righe di un bottone, col carattere già impostato
   function lineeBottone(ctx, testo, spazio) {
     const linee = [];
-    testo.split(' ').forEach((p) => {
-      const prova = linee.length ? `${linee[linee.length - 1]} ${p}` : p;
+    // Si va a capo agli spazi e dopo un trattino («Semi-circonferenze»)
+    testo.split(/ |(?<=\p{L}-)(?=\p{L})/u).forEach((p) => {
+      const ultima = linee[linee.length - 1];
+      const prova = linee.length ? `${ultima}${/\p{L}-$/u.test(ultima) && /^\p{L}/u.test(p) ? '' : ' '}${p}` : p;
       if (linee.length && ctx.measureText(prova).width <= spazio) linee[linee.length - 1] = prova; else linee.push(p);
     });
     return linee;
@@ -103,7 +106,7 @@ window.Pagina = (function () {
   const BLOCCO = {
     titolo(c, b, y) { c.fillStyle = C.ink; return scriviTitolo(c, b.testo, y, 68); },
     sotto(c, b, y) { return scriviTitolo(c, b.testo, y, 48) ; },
-    p(c, b, y) { return scrivi(c, b.testo, MX, y, b.size || TESTO, LARGA, b.colore) + 22; },
+    p(c, b, y) { return scrivi(c, b.testo, MX, y, Math.max(MINIMO, b.size || TESTO), LARGA, b.colore) + 22; },
     nota(c, b, y) { c.save(); const h = scriviDisegno(c, b.testo, y); c.restore(); return h + 16; },
     spazio(c, b) { return b.h; },
     formula(c, b, y) {
@@ -113,7 +116,7 @@ window.Pagina = (function () {
       return 106;
     },
     riquadro(c, b, y) {
-      const size = b.size || TESTO; const pad = 28;
+      const size = Math.max(MINIMO, b.size || TESTO); const pad = 28;
       const n = quanteRighe(c, b.testo, size, LARGA - pad * 2);
       const h = n * Math.round(size * 1.32) + pad * 2;
       c.fillStyle = C.carta; c.fillRect(MX, y, LARGA, h);
@@ -122,7 +125,7 @@ window.Pagina = (function () {
       return h + 22;
     },
     tabella(c, b, y) {
-      const size = b.size || 34; const lh = Math.round(size * 1.3); const pad = 10;
+      const size = Math.max(MINIMO, b.size || 34); const lh = Math.round(size * 1.3); const pad = 10;
       const tot = b.col.reduce((a, v) => a + v, 0); const larg = b.col.map((v) => (v / tot) * LARGA);
       let yy = y;
       b.righe.forEach((r, i) => {
@@ -305,5 +308,5 @@ window.Pagina = (function () {
     return { zone, trabocco: y > FONDO + 26 ? y : 0, testo: testo.join(' ') };
   }
 
-  return { W, H, MX, LARGA, C, TESTO, disegna, quanteRighe, font, stretti };
+  return { W, H, MX, LARGA, C, TESTO, MINIMO, disegna, quanteRighe, font, stretti };
 })();

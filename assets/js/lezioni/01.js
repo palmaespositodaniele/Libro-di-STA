@@ -115,7 +115,7 @@
   }
   const inclina = (a) => copieNave.forEach((p) => { p.rotation.x = a; });
 
-  const VISTA = () => ({ target: new THREE.Vector3(45, 2, 0), theta: 0.6, phi: 1.3, r: 112 });
+  const VISTA = () => ({ target: new THREE.Vector3(49, 2, 0), theta: 0.6, phi: 1.3, r: 142 });
   let mondo = null;
 
   function creaMondo() {
@@ -124,7 +124,7 @@
     const grande = nave(1);
     radice.add(grande);
     radice.add(Scafo.mare());
-    const nomi = [['prua', 103, 8, 0], ['poppa', -8, 11, 0], ['dritta', 45, 16, 16], ['sinistra', 45, 16, -16]];
+    const nomi = [['prua', 96, 13, 0], ['poppa', -8, 11, 0], ['dritta', 45, 16, 16], ['sinistra', 45, 16, -16]];
     nomi.forEach(([t, x, y, z]) => { const e = etichetta(t, 5); e.position.set(x, y, z); radice.add(e); });
 
     // In scala vera si cammina da prua a poppa: le pedane stanno anche in coperta
@@ -222,7 +222,7 @@
     g.add(compatta(linea));
     const dim = k > 1 ? 9 : 6;
     const e = etichetta('20 miglia', dim, '#FBFAF4'); e.position.set(LIMITE * NM, 7, 30); g.add(e);
-    const nome = etichetta('costa', dim, '#FBFAF4'); nome.position.set(-14, 7, 30); g.add(nome);
+    const nome = etichetta('costa', dim, '#FBFAF4'); nome.position.set(-9, 7, 30); g.add(nome);
     const nave2 = new THREE.Group(); nave2.add(Scafo.crea(k > 1 ? 7 : 3)); g.add(nave2);
     const presa = maniglia(k > 1 ? 6 : 4, 'dist'); presa.position.set(0, k > 1 ? 17 : 14, 0); nave2.add(presa);
     presa.userData.vincolo = { asse: [1, 0, 0] }; // la nave si allontana dalla costa
@@ -240,7 +240,7 @@
     posaCosta();
     mondoCosta = {
       radice, stazioni, modellino: mini,
-      vistaIniziale: () => ({ target: new THREE.Vector3(50, 2, 0), theta: 0, phi: 1.05, r: 150 }),
+      vistaIniziale: () => ({ target: new THREE.Vector3(44, 2, 0), theta: 0, phi: 1.05, r: 150 }),
       tocchi: (vista) => c1.prese[vista === 'mini' ? 'mini' : 'schermo'],
       trascina(id, dx, dy, info) {
         const prima = Math.round(c1.dist);
@@ -301,7 +301,7 @@
     posaSovra();
     mondoSovra = {
       radice, stazioni, modellino: mini,
-      vistaIniziale: () => ({ target: new THREE.Vector3(45, 2, 0), theta: 0.35, phi: 1.12, r: 112 }),
+      vistaIniziale: () => ({ target: new THREE.Vector3(47, 2, 0), theta: 0.35, phi: 1.12, r: 135 }),
       tocchi: (vista) => so.prese[vista === 'mini' ? 'mini' : 'schermo'],
       trascina(id, dx, dy, info) {
         const prima = nomeSovra()[0];

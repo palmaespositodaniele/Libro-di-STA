@@ -41,7 +41,7 @@
   const ca = { guasto: -1, t: 0, copie: [] };
   const creaCatena = Lezione.simula({
     scala: 0.011, centro: [0, 8], mare: false, k: 2.5, pedana: [0, 44, 'davanti alla catena'],
-    vista: () => ({ target: new THREE.Vector3(0, 7, 0), theta: 0.12, phi: 1.3, r: 92 }),
+    vista: () => ({ target: new THREE.Vector3(0, 7, 0), theta: 0.12, phi: 1.3, r: 99 }),
     modello(k, tocca) {
       const g = new THREE.Group();
       g.add(scatola(100, 0.6, 26, '#D8E0EC', 0, -0.3, 0));
@@ -111,7 +111,7 @@
   }
   const creaTerminal = Lezione.simula({
     scala: 0.0058, centro: [30, 4], k: 2.8, pedana: [30, 62, 'sul piazzale'], dopo: posaCiclo,
-    vista: () => ({ target: new THREE.Vector3(26, 8, 6), theta: 0.12, phi: 1.02, r: 158 }),
+    vista: () => ({ target: new THREE.Vector3(30, 6, 24), theta: 0.12, phi: 1.02, r: 205 }),
     modello(k, tocca) {
       const g = new THREE.Group(); const dim = 3 + k * 1.2;
       g.add(scatola(190, 3, 220, '#C5CBD3', 95, 0.5, 0));
@@ -176,7 +176,7 @@
     c.strokeStyle = '#20201F'; c.lineWidth = 10; c.beginPath(); c.moveTo(256, 0); c.lineTo(256, 512); c.stroke();
     c.fillStyle = '#FBFAF4'; c.fillRect(30, 40, 452, 130);
     c.fillStyle = '#0B2545'; c.font = '700 74px Atkinson, sans-serif'; c.textBaseline = 'middle'; c.textAlign = 'left';
-    c.fillText('MSC', 50, 105); c.fillText('U', 215, 105); c.font = '700 62px Atkinson, sans-serif'; c.fillText('123456', 262, 105);
+    c.fillText('MSC', 40, 105); c.fillText('U', 200, 105); c.font = '700 54px Atkinson, sans-serif'; c.fillText('123456', 256, 105, 180);
     c.fillStyle = '#C9A227'; c.fillRect(442, 72, 34, 66); c.fillStyle = '#0B2545'; c.font = '700 52px Atkinson, sans-serif'; c.fillText('7', 446, 106);
   });
   function posaContainer() {
@@ -278,7 +278,7 @@
   }
   const creaPiano = Lezione.simula({
     scala: 0.012, centro: [45, 4], k: 4, pedana: [45, 30, 'a dritta'], dopo: posaPiano,
-    vista: () => ({ target: new THREE.Vector3(45, 7, 0), theta: 0.75, phi: 1.05, r: 85 }),
+    vista: () => ({ target: new THREE.Vector3(50, 5, 0), theta: 0.75, phi: 1.05, r: 125 }),
     modello(k, tocca) {
       const g = new THREE.Group(); const assetto = new THREE.Group(); assetto.position.set(45, 0, 0);
       const nave = Scafo.crea(k); nave.position.set(-45, -6, 0); assetto.add(nave);

@@ -167,7 +167,7 @@
     const corte = s.lunghezza <= 100;
     c.fillStyle = C.carta; c.fillRect(0, 0, LW, LH);
     c.fillStyle = C.ink; c.strokeStyle = C.ink;
-    c.font = '34px Disegno, cursive'; c.textAlign = 'left'; c.fillText('lente sul pettine, in scala', 18, 38);
+    c.font = '36px Disegno, cursive'; c.textAlign = 'left'; c.fillText('lente sul pettine, in scala', 18, 38);
     c.textAlign = 'right'; c.fillText('prua →', LW - 18, 38); c.textAlign = 'left';
     c.lineWidth = SP; c.beginPath(); c.arc(XO, yMm(0), 150 * SCALA - SP / 2, 0, Math.PI * 2); c.stroke();
     c.fillRect(XO - 225 * SCALA, yMm(0), 450 * SCALA, SP);
@@ -180,7 +180,7 @@
       c.fillStyle = m === r.evidenziata ? C.ocra : C.ink;
       c.fillRect(verso > 0 ? XP : XP - BARRA, yMm(MARCA[m]), BARRA, SP);
       c.fillStyle = m === r.evidenziata ? C.ocraT : C.ink;
-      c.font = '700 32px Atkinson, sans-serif';
+      c.font = '700 36px Atkinson, sans-serif';
       c.textAlign = verso > 0 ? 'left' : 'right';
       c.fillText(m, verso > 0 ? XP + BARRA + 10 : XP - BARRA - 10, yMm(MARCA[m]) + (m === 'W' ? 6 : m === 'WNA' ? 24 : 16));
       c.textAlign = 'left';
@@ -192,7 +192,7 @@
     const y = yMm(livello);
     c.fillStyle = 'rgba(46,125,181,0.32)'; c.fillRect(0, y, LW, LH - y);
     c.fillStyle = C.acqua; c.fillRect(0, y - 2, LW, 4);
-    c.fillStyle = C.ink; c.font = '32px Disegno, cursive'; c.fillText('acqua', 18, LH - 14);
+    c.fillStyle = C.ink; c.font = '36px Disegno, cursive'; c.fillText('acqua', 18, LH - 14);
     c.strokeStyle = C.ink; c.lineWidth = 4; c.strokeRect(2, 2, LW - 4, LH - 4);
     texLente.needsUpdate = true;
   }
@@ -248,7 +248,7 @@
 
   /* Il mondo dell'esperimento: finestra sulla pagina, scala 1:1 nel visore -------- */
 
-  const VISTA_NAVE = () => ({ target: new THREE.Vector3(45, 2, 0), theta: 0.6, phi: 1.33, r: 112 });
+  const VISTA_NAVE = () => ({ target: new THREE.Vector3(48, 2, 0), theta: 0.6, phi: 1.33, r: 125 });
   const VISTA_PETTINE = () => ({ target: new THREE.Vector3(45.3, 0.45, 7.5), theta: 0, phi: 1.5, r: 3.2 });
   let mondo = null; let visibile = 0; let ultimoDisegno = null;
 
@@ -484,7 +484,7 @@
     c.quadraticCurveTo(100, 300, 100, 258); c.closePath(); c.stroke();
     c.strokeStyle = C.acqua; c.lineWidth = 3; c.beginPath(); c.moveTo(0, 168); c.lineTo(480, 168); c.stroke();
     c.strokeStyle = C.ink; c.lineWidth = 2.5; c.beginPath(); c.moveTo(385, 72); c.lineTo(385, 166); c.stroke();
-    c.fillStyle = C.ink; c.font = '32px Disegno, cursive'; c.textAlign = 'center';
+    c.fillStyle = C.ink; c.font = '36px Disegno, cursive'; c.textAlign = 'center';
     c.fillText('ponte stagno', 220, 56); c.fillText('riserva di spinta', 220, 126); c.fillText('volume di carena', 220, 240);
     c.textAlign = 'left'; c.fillText('bordo', 398, 118); c.fillText('libero', 398, 142); c.fillText('galleggiamento', 4, 160);
     c.restore();

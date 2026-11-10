@@ -45,7 +45,7 @@
   }
   const creaCarena = Lezione.simula({
     scala: 0.0095, centro: [45, 2], k: 5, pedana: [45, 34, 'di fianco'], dopo: posaCarena,
-    vista: () => ({ target: new THREE.Vector3(36, 9, 0), theta: 0.1, phi: 1.36, r: 158 }),
+    vista: () => ({ target: new THREE.Vector3(33, 9, 0), theta: 0.1, phi: 1.36, r: 158 }),
     modello(k, tocca) {
       const g = new THREE.Group(); const dim = 3 + k * 0.5;
       const perno = new THREE.Group(); perno.position.set(45, 0, 0);
@@ -217,7 +217,7 @@
   }
   const creaCarte = Lezione.simula({
     scala: 0.0105, centro: [0, 2], k: 3, pedana: [0, 44, 'al largo'], dopo: posaCarta,
-    vista: () => ({ target: new THREE.Vector3(0, 3, 4), theta: 0, phi: 1.02, r: 110 }),
+    vista: () => ({ target: new THREE.Vector3(0, 3, 4), theta: 0, phi: 1.02, r: 132 }),
     modello(k, tocca) {
       const g = new THREE.Group(); const dim = 3 + k * 0.5;
       CESTE.forEach(([id, nome], i) => {

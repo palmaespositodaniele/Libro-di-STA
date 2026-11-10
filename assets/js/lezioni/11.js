@@ -74,7 +74,7 @@
   function disegnaLente() {
     const c = telaLente.getContext('2d'); const a = rad(s.alfa);
     c.fillStyle = C.carta; c.fillRect(0, 0, LW, LH);
-    c.fillStyle = C.ink2; c.font = '32px Disegno, cursive'; c.textAlign = 'left';
+    c.fillStyle = C.ink2; c.font = '36px Disegno, cursive'; c.textAlign = 'left';
     c.fillText('dall\'alto, prua a destra', 18, 36);
     c.fillText('frecce schematiche', 18, LH - 16);
     // Poppa della nave
@@ -83,7 +83,7 @@
     c.moveTo(LW - 10, ay - 120); c.lineTo(ax + 120, ay - 120); c.quadraticCurveTo(ax + 40, ay - 90, ax + 30, ay);
     c.quadraticCurveTo(ax + 40, ay + 90, ax + 120, ay + 120); c.lineTo(LW - 10, ay + 120); c.stroke();
     c.setLineDash([12, 9]); c.strokeStyle = C.ink2; c.lineWidth = 3; c.beginPath(); c.moveTo(60, ay); c.lineTo(LW, ay); c.stroke(); c.setLineDash([]);
-    c.fillStyle = C.ink2; c.font = '32px Disegno, cursive'; c.fillText('dritta', LW - 100, ay + 158); c.fillText('sinistra', LW - 120, ay - 134);
+    c.fillStyle = C.ink2; c.font = '36px Disegno, cursive'; c.fillText('dritta', LW - 100, ay + 158); c.fillText('sinistra', LW - 120, ay - 134);
     // Pala: con barra a dritta la coda va verso dritta
     const lp = 190;
     const bx = ax - lp * Math.cos(a); const by = ay + lp * Math.sin(a);

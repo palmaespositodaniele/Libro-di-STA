@@ -60,6 +60,7 @@
     });
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
     s.scale.set((altezza * w) / (px + 40), altezza, 1);
+    s.userData.testo = testo; // per il collaudo delle etichette
     return s;
   }
 

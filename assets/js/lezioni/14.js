@@ -100,7 +100,7 @@
     if (mondoGlobo) return mondoGlobo;
     const radice = new THREE.Group();
     radice.add(globo(1), Scafo.mare());
-    const fine = etichetta('non in scala', 2.4, '#5B6B7C'); fine.position.set(30, 1.8, 6); radice.add(fine);
+    const fine = etichetta('non in scala', 2.4, '#5B6B7C'); fine.position.set(16, 1.8, 6); radice.add(fine);
     const stazioni = [
       { pedana: pedana(0, 36, 'davanti al globo'), pos: new THREE.Vector3(0, 0.25, 36), yaw: 0 },
       { pedana: pedana(36, 34, 'davanti ai righelli'), pos: new THREE.Vector3(36, 0.25, 34), yaw: 0 },

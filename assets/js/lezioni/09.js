@@ -43,7 +43,7 @@
       const dm = Math.round(v * 10);
       c.fillText(dm % 10 === 0 ? `${dm / 10} m` : String(dm % 10), cx - 40, y);
     }
-    c.fillStyle = C.ink2; c.font = '32px Disegno, cursive'; c.fillText(nome, cx - 110, 38);
+    c.fillStyle = C.ink2; c.font = '36px Disegno, cursive'; c.fillText(nome, cx - 110, 38);
     c.fillStyle = C.ink; c.font = '700 40px Atkinson, sans-serif'; c.fillText(`${virgola(t)} m`, cx + 110, y0 - 12);
   }
   function disegnaLente() {

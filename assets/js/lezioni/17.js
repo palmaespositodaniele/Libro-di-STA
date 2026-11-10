@@ -55,16 +55,16 @@
         c.moveTo(O + (R - 6) * Math.cos(a), O + (R - 6) * Math.sin(a));
         c.lineTo(O + (R - 6 - lung) * Math.cos(a), O + (R - 6 - lung) * Math.sin(a)); c.stroke();
       }
-      c.fillStyle = '#0B2545'; c.font = '700 44px Atkinson, sans-serif';
+      c.fillStyle = '#0B2545'; c.font = '700 62px Atkinson, sans-serif';
       for (let g = 0; g < 360; g += 30) {
         const a = ((g - 90) * Math.PI) / 180;
-        c.save(); c.translate(O + (R - 90) * Math.cos(a), O + (R - 90) * Math.sin(a)); c.rotate(a + Math.PI / 2);
+        c.save(); c.translate(O + (R - 98) * Math.cos(a), O + (R - 98) * Math.sin(a)); c.rotate(a + Math.PI / 2);
         c.fillText(String(g).padStart(3, '0'), 0, 0); c.restore();
       }
-      c.font = '700 74px Bitter, Georgia, serif';
+      c.font = '700 96px Bitter, Georgia, serif';
       [['N', 0], ['E', 90], ['S', 180], ['W', 270]].forEach(([t, g]) => {
         const a = ((g - 90) * Math.PI) / 180;
-        c.save(); c.translate(O + (R - 180) * Math.cos(a), O + (R - 180) * Math.sin(a)); c.rotate(a + Math.PI / 2); c.fillText(t, 0, 0); c.restore();
+        c.save(); c.translate(O + (R - 210) * Math.cos(a), O + (R - 210) * Math.sin(a)); c.rotate(a + Math.PI / 2); c.fillText(t, 0, 0); c.restore();
       });
     });
   }
@@ -97,8 +97,8 @@
     const nm = lancia(COL.medio, 0.012, R * 0.86);
     const nv = lancia(COL.ocra, 0.016, R * 0.86);
     rosa.add(nb, nm, nv);
-    const lab = (t, col) => { const e = etichetta(t, 0.06, col); e.position.set(0, 0.03, -R * 0.96); return e; };
-    nb.add(lab('Nb', '#0B2545')); nm.add(lab('Nm', '#5B6B7C')); nv.add(lab('Nv', '#8C7020'));
+    const lab = (t, col, dove) => { const e = etichetta(t, 0.06, col); e.position.set(0, 0.03, -R * dove); return e; }; // a distanze diverse: i tre nord sono vicinissimi
+    nb.add(lab('Nb', '#0B2545', 0.96)); nm.add(lab('Nm', '#5B6B7C', 0.7)); nv.add(lab('Nv', '#8C7020', 0.44));
     g.add(rosa);
     // Sfera d'oro sul bordo della rosa: girandola la nave accosta, e la rosa resta col nord
     const presa = Tavola.maniglia(0.035, 'pb'); presa.position.set(0, 0.06, R + 0.16); rosa.add(presa);
@@ -158,23 +158,23 @@
   function disegnaLente() {
     const c = telaLente.getContext('2d');
     c.fillStyle = C.carta; c.fillRect(0, 0, LW, LH);
-    const O = { x: 300, y: LH - 26 }; const R = 165; const k = 2.2;
+    const O = { x: 300, y: LH - 26 }; const R = 150; const k = 2.2;
     const raggio = (ang, col, nome, sp, sale) => {
       const a = ((ang * k - 90) * Math.PI) / 180;
       c.strokeStyle = col; c.lineWidth = sp; c.beginPath(); c.moveTo(O.x, O.y); c.lineTo(O.x + R * Math.cos(a), O.y + R * Math.sin(a)); c.stroke();
-      c.fillStyle = col; c.font = '700 32px Atkinson, sans-serif'; c.textAlign = 'center';
+      c.fillStyle = col; c.font = '700 36px Atkinson, sans-serif'; c.textAlign = 'center';
       c.fillText(nome, O.x + (R + 18 + sale) * Math.cos(a), O.y + (R + 18 + sale) * Math.sin(a));
     };
     const d = dic(); const dv = delta();
     // Le sigle stanno su altezze diverse: i tre nord possono essere vicinissimi
     raggio(0, C.ocra, 'Nv', 7, 0);
-    raggio(d, C.ink2, 'Nm', 6, 30);
-    raggio(d + dv, C.ink, 'Nb', 6, 60);
+    raggio(d, C.ink2, 'Nm', 6, 36);
+    raggio(d + dv, C.ink, 'Nb', 6, 72);
     c.textAlign = 'left'; c.fillStyle = C.ink; c.font = '700 36px Atkinson, sans-serif';
     c.fillText(`d = ${angolo(d)}`, 620, 80);
     c.fillText(`δ = ${angolo(dv)}`, 620, 134);
     c.fillText(`V = d + δ = ${angolo(d + dv)}`, 620, 188);
-    c.fillStyle = C.ink2; c.font = '32px Disegno, cursive'; c.fillText('angoli ingranditi per leggerli', 620, 260);
+    c.fillStyle = C.ink2; c.font = '36px Disegno, cursive'; c.fillText('angoli ingranditi per leggerli', 580, 260, LW - 600);
     c.strokeStyle = C.ink; c.lineWidth = 4; c.strokeRect(2, 2, LW - 4, LH - 4);
     texLente.needsUpdate = true;
   }
@@ -274,7 +274,7 @@
         const e = etichetta(nome, 14 + k, colNome); e.position.copy(fine).add(new THREE.Vector3(0, alto, 0)); g.add(e);
       };
       freccia(0, COL.ocra, 'Nv', '#8C7020', 6);
-      freccia(D_GIRO, COL.medio, 'Nm', '#5B6B7C', 16);
+      freccia(D_GIRO, COL.medio, 'Nm', '#5B6B7C', 28);
       const perno = new THREE.Group(); const nave = Scafo.crea(k); nave.position.set(-45, -6, 0); perno.add(nave);
       perno.add(segmento(new THREE.Vector3(45, 1, 0), new THREE.Vector3(70, 1, 0), 0.6 * Math.sqrt(k), COL.rosso)); // linea di prora
       const presa = maniglia(2.6 * Math.sqrt(k), 'giro'); presa.position.set(30, 14, 0); perno.add(presa); tocca(presa);

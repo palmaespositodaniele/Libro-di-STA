@@ -76,7 +76,7 @@
   function cambia(d) { st.i = (st.i + d + TIPI.length) % TIPI.length; st.esito = null; posaGalleria(); }
   const creaGalleria = Lezione.simula({
     scala: 0.0115, centro: [45, 2], k: 3, pedana: [45, 44, 'a dritta'], dopo: posaGalleria,
-    vista: () => ({ target: new THREE.Vector3(45, 4, 0), theta: 0.42, phi: 1.28, r: 124 }),
+    vista: () => ({ target: new THREE.Vector3(45, 4, 0), theta: 0.42, phi: 1.28, r: 132 }),
     modello(k, tocca) {
       const g = new THREE.Group(); const gruppo = new THREE.Group(); g.add(gruppo);
       const scafo = Scafo.crea(k, true); gruppo.add(scafo);

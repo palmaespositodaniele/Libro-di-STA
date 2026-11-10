@@ -167,7 +167,7 @@
     c.fillStyle = C.carta; c.fillRect(0, 0, LW, LH);
     const cx = 250; const cy = 155; const R = 110;
     c.strokeStyle = C.ink2; c.lineWidth = 3; c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.stroke();
-    c.fillStyle = C.ink2; c.font = '32px Disegno, cursive'; c.textAlign = 'center'; c.fillText('N', cx, cy - R - 8);
+    c.fillStyle = C.ink2; c.font = '36px Disegno, cursive'; c.textAlign = 'center'; c.fillText('N', cx, cy - R - 8);
     // Vento: arriva da g, scorre attraverso il centro
     const a = ((l.gradi - 90) * Math.PI) / 180;
     const x0 = cx + (R + 30) * Math.cos(a); const y0 = cy + (R + 30) * Math.sin(a); const x1 = cx - 40 * Math.cos(a); const y1 = cy - 40 * Math.sin(a);
@@ -178,9 +178,9 @@
     c.fillStyle = C.rosso; c.font = '700 44px Atkinson, sans-serif'; c.fillText('B', cx + (bx / m) * (R - 14), cy + (bz / m) * (R - 14) + 16);
     c.textAlign = 'left'; c.fillStyle = C.ink; c.font = '700 36px Atkinson, sans-serif';
     c.fillText(`Vento da ${DOVE[l.settore]}`, 490, 90);
-    c.font = '34px Atkinson, sans-serif'; c.fillText(`nel Mediterraneo: ${VENTI[l.settore]}`, 490, 138);
+    c.font = '36px Atkinson, sans-serif'; c.fillText(`nel Mediterraneo: ${VENTI[l.settore]}`, 490, 138);
     c.fillText(s.sud ? 'Spalle al vento: bassa a destra' : 'Spalle al vento: bassa a sinistra', 490, 186);
-    c.fillStyle = C.ink2; c.font = '32px Disegno, cursive'; c.fillText('carta schematica', 490, 250);
+    c.fillStyle = C.ink2; c.font = '36px Disegno, cursive'; c.fillText('carta schematica', 490, 250);
     c.strokeStyle = C.ink; c.lineWidth = 4; c.strokeRect(2, 2, LW - 4, LH - 4);
     texLente.needsUpdate = true;
   }
@@ -281,7 +281,7 @@
         const fianco = griglia(18, 1, (a, b) => [-a * 60, b * 16 * a ** 0.55, sg * 22]);
         cuneo.add(new THREE.Mesh(fianco, new THREE.MeshBasicMaterial({ color: COL.acqua, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false })));
       });
-      const freddo = etichetta('aria fredda', 3 + k, '#0B2545'); freddo.position.set(-26, 4, 24); cuneo.add(freddo);
+      const freddo = etichetta('aria fredda', 3 + k, '#0B2545'); freddo.position.set(-20, 4, 24); cuneo.add(freddo);
       g.add(cuneo);
       const calda = etichetta('aria calda', 3 + k, '#B3362B'); calda.position.set(34, 12, 0); g.add(calda);
       const nube = new THREE.Group();
@@ -356,7 +356,7 @@
         for (let mmv = 690; mmv <= 810; mmv += 2) {
           const y = 1024 - ((mmv - 690) / 120) * 1024; const lunga = mmv % 10 === 0;
           c.fillRect(0, y - 1.5, lunga ? 50 : 24, 3);
-          if (lunga && mmv > 690 && mmv < 810) c.fillText(String(mmv), 56, y + 14);
+          if (lunga && mmv > 690 && mmv < 810) c.fillText(String(mmv), 54, y + 14, 72);
         }
       });
       const asta = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.12), new THREE.MeshBasicMaterial({ map: tex }));
@@ -369,7 +369,7 @@
         const punta = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.025, 10), new THREE.MeshBasicMaterial({ color: COL.ocra })); punta.rotation.x = Math.PI; punta.position.y = 0.0125; f.add(punta);
         g.add(f); return f;
       });
-      const nomeAria = etichetta('pressione dell\'aria', 0.045 * k, '#8C7020'); nomeAria.position.set(0.3, PELO + 0.1, 0.06); g.add(nomeAria);
+      const nomeAria = etichetta('pressione dell\'aria', 0.045 * k, '#8C7020'); nomeAria.position.set(0.68, PELO + 0.16, 0.06); g.add(nomeAria);
       const nomeH = etichetta('h', 0.06 * k); nomeH.position.set(0.075, PELO + 0.4, 0); g.add(nomeH);
       ba.copie.push({ colonna, vuoto, frecce, dito });
       return g;
@@ -409,7 +409,7 @@
     c.fillStyle = 'rgba(46,125,181,0.32)'; c.beginPath(); c.moveTo(x, suolo); c.lineTo(testa, suolo); c.quadraticCurveTo(testa - w * 0.1, y + h * 0.5, x, y + h * 0.16); c.closePath(); c.fill();
     c.strokeStyle = C.ink; c.lineWidth = 5; c.beginPath(); c.moveTo(testa, suolo); c.quadraticCurveTo(testa - w * 0.1, y + h * 0.5, x, y + h * 0.16); c.stroke();
     c.lineWidth = 6; c.beginPath(); c.moveTo(x, suolo); c.lineTo(x + w, suolo); c.stroke();
-    c.fillStyle = C.ink; c.font = '700 34px Atkinson, sans-serif'; c.fillText('aria fredda', x + 30, suolo - 26);
+    c.fillStyle = C.ink; c.font = '700 36px Atkinson, sans-serif'; c.fillText('aria fredda', x + 30, suolo - 26);
     c.fillText('aria calda', x + w - 200, y + 50);
     if (f === 1) {
       // Cumulonembo sopra il fronte, con rovesci

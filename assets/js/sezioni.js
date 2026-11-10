@@ -62,7 +62,7 @@
           celle: numeri.map((n) => ({
             fn(c, x, y, w, h) {
               Libro.bandiera(c, n, x, y, w, h - 46, stato(n).bandiera);
-              c.font = '34px Disegno, cursive'; c.fillStyle = C.ink2; c.textAlign = 'center';
+              c.font = '36px Disegno, cursive'; c.fillStyle = C.ink2; c.textAlign = 'center';
               c.fillText(`lez. ${n}`, x + w / 2, y + h - 10); c.textAlign = 'left';
             },
           })),

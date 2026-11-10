@@ -29,7 +29,7 @@
   const st = { scelto: null };
   const creaStati = Lezione.simula({
     scala: 0.0095, centro: [45, 2], k: 3, pedana: [45, 44, 'accanto alla nave'],
-    vista: () => ({ target: new THREE.Vector3(45, 6, 0), theta: 0.28, phi: 1.2, r: 150 }),
+    vista: () => ({ target: new THREE.Vector3(62, 6, 0), theta: 0.28, phi: 1.2, r: 215 }),
     modello(k, tocca) {
       const g = new THREE.Group(); const dim = 4 + k;
       const nave = Scafo.crea(k); nave.position.y = -6; g.add(nave);

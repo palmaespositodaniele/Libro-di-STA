@@ -90,7 +90,7 @@
     for (let x = 40; x < LW; x += 40) { c.moveTo(x, 0); c.lineTo(x, LH); }
     for (let y = 40; y < LH; y += 40) { c.moveTo(0, y); c.lineTo(LW, y); }
     c.stroke();
-    c.fillStyle = C.ink; c.font = '32px Disegno, cursive'; c.textAlign = 'left';
+    c.fillStyle = C.ink; c.font = '36px Disegno, cursive'; c.textAlign = 'left';
     const pn = s.piano && PIANI[s.piano];
     c.fillText(pn ? pn.sezione : 'piano di costruzione: scegli un piano', 18, 38);
     if (pn) {
@@ -101,7 +101,7 @@
       c.beginPath();
       pt.forEach((q, i) => { if (i === 0) c.moveTo(prX(q), prY(q)); else c.lineTo(prX(q), prY(q)); });
       c.closePath(); c.fill(); c.stroke();
-      if (s.piano === 'longitudinale') { c.fillStyle = C.ink2; c.font = '32px Disegno, cursive'; c.fillText('altezze raddoppiate per leggerle', LW - 400, LH - 20); }
+      if (s.piano === 'longitudinale') { c.fillStyle = C.ink2; c.font = '36px Disegno, cursive'; c.fillText('altezze raddoppiate per leggerle', LW - 400, LH - 20); }
     }
     c.strokeStyle = C.ink; c.lineWidth = 4; c.strokeRect(2, 2, LW - 4, LH - 4);
     texLente.needsUpdate = true;
@@ -187,7 +187,7 @@
     copie.forEach((c) => Object.keys(c.assi).forEach((n) => c.assi[n].color.setHex(n === asse ? COL.ocra : COL.inchiostro)));
   }
 
-  const VISTA = () => ({ target: new THREE.Vector3(45, 3, 0), theta: 0.55, phi: 1.2, r: 128 });
+  const VISTA = () => ({ target: new THREE.Vector3(50, 3, 0), theta: 0.55, phi: 1.2, r: 146 });
   let mondo = null;
 
   function creaMondo() {
