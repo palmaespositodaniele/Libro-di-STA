@@ -461,14 +461,14 @@
           { t: 'titolo', testo: 'L\'impianto di governo' },
           { t: 'p', size: 38, testo: 'L\'impianto di governo (*steering system*) consente il brandeggio del timone a distanza. {{slide 2}}' },
           { t: 'p', size: 38, testo: 'Dalla ruota di governo (*steering wheel*), nella stazione di governo, il comando va al **telemotore**, che controlla l\'unità di potenza (*power unit*). {{slide 2, 4}}' },
-          { t: 'p', size: 38, testo: 'L\'unità di potenza aziona l\'agghiaccio (*rudder actuator*), che fa ruotare il timone (*helm*). {{slide 4}}' },
+          { t: 'p', size: 38, testo: 'L\'unità di potenza aziona l\'agghiaccio (*rudder actuator*), che fa ruotare il timone (*rudder*). {{slide 4}}' },
         ],
         dx: [
           { t: 'sotto', testo: 'Le due unità di potenza' },
           { t: 'tabella', col: [28, 36, 36], size: 34, righe: [
             ['Unità', 'Rotazione', 'Condizioni'],
             ['Primaria', 'da -35° a +30° in massimo 28 s', 'alla massima velocità'],
-            ['Secondaria', 'da -15° a +15° in massimo 60 s', 'a una velocità massima di 7 kn'],
+            ['Secondaria', 'da -15° a +15° in massimo 60 s', 'a metà della velocità massima di servizio, o a 7 kn se maggiore'],
           ] },
           { t: 'nota', testo: 'slide 24' },
           { t: 'titolo', testo: 'Timone Becker' },

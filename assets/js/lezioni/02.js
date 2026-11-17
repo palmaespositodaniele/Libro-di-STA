@@ -447,7 +447,7 @@
         dx: [
           { t: 'spazio', h: 120 },
           { t: 'p', size: 38, testo: '**Unità subacquee** (*underwater unit*): operano sotto la superficie dell\'acqua. {{slide 7}}' },
-          { t: 'p', size: 38, testo: '**Semisommergibili** (SWATH): ridotta area della figura di galleggiamento, che consente una rapida variazione dell\'immersione. Per carichi pesanti o eccezionali, attività offshore e scientifiche. {{slide 8}}' },
+          { t: 'p', size: 38, testo: '**SWATH** (*Small Waterplane Area Twin Hull*): due scafi sommersi uniti da montanti sottili; la ridotta area della figura di galleggiamento rende la nave poco sensibile al moto ondoso. Usata per navi oceanografiche, pilotine e mezzi di supporto offshore. {{slide 8}}' },
         ],
       },
       {

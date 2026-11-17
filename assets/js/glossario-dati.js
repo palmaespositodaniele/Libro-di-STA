@@ -71,7 +71,7 @@ const GLOSSARIO = [
   ['insellatura', 'sheer', 4],
   ['stellatura', 'dead rise', 4],
   ['sezione maestra', 'midships', 4],
-  ['svasatura', 'countersink', 4],
+  ['svasatura', 'flare', 4],
   ['rientranza', 'tumblehome', 4],
   // Lezione 6
   ['progetto finale', 'contract design', 6],
@@ -135,7 +135,7 @@ const GLOSSARIO = [
   ['ruota di governo', 'steering wheel', 11],
   ['unità di potenza', 'power unit', 11],
   ['agghiaccio', 'rudder actuator', 11],
-  ['timone', 'helm', 11],
+  ['timone', 'rudder', 11],
   ['timone compensato', 'balanced rudder', 11],
   ['grado di compenso', 'balance ratio', 11],
   ['timone semicompensato', 'semibalanced rudder', 11],

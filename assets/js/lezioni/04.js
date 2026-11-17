@@ -294,7 +294,7 @@
     });
   }
   function testoFianco() {
-    if (se.fianco > 0.15) return '**Svasatura** (*countersink*): la semilarghezza diminuisce dal ponte verso la chiglia.';
+    if (se.fianco > 0.15) return '**Svasatura** (*flare*): la semilarghezza diminuisce dal ponte verso la chiglia.';
     if (se.fianco < -0.15) return '**Rientranza** (*tumblehome*): la semilarghezza aumenta dal ponte verso la chiglia.';
     return 'Fianco verticale: né svasatura né rientranza.';
   }
@@ -464,7 +464,7 @@
         ],
         dx: [
           { t: 'spazio', h: 120 },
-          { t: 'p', size: 38, testo: '**Svasatura** (*countersink*): la semilarghezza diminuisce dal ponte verso la chiglia. {{slide 18}}' },
+          { t: 'p', size: 38, testo: '**Svasatura** (*flare*): la semilarghezza diminuisce dal ponte verso la chiglia. {{slide 18}}' },
           { t: 'p', size: 38, testo: '**Rientranza** (*tumblehome*): la semilarghezza aumenta dal ponte verso la chiglia. {{slide 18}}' },
           { t: 'p', size: 38, testo: '**Controbordi o bottazzi**: ingrossamento localizzato al galleggiamento, per una migliore stabilità. {{slide 19}}' },
         ],

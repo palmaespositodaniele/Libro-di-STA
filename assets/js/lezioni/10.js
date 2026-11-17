@@ -24,7 +24,7 @@
   const TIPI = {
     elica: { nome: 'Elica', testo: 'L\'**elica** è composta da pale e mozzo. Girando si «avvita» nel fluido e dà una spinta contraria al verso di avvitamento. {{slide 13, 14}}' },
     voith: { nome: 'Voith Schneider', testo: 'Un **tamburo** sotto la volta di poppa porta pale verticali che oscillano mentre esso ruota: dà spinte propulsive e trasversali. {{slide 33}}' },
-    azipod: { nome: 'Azipod', testo: 'Il **pod** contiene un motore elettrico, sta sotto la chiglia e ruota di 360° sul piano orizzontale: dirige la spinta ovunque. {{slide 38, 39}}' },
+    azipod: { nome: 'Azipod', testo: 'Il **pod** contiene un motore elettrico, sta sotto la poppa, all\'esterno dello scafo, e ruota di 360° sul piano orizzontale: dirige la spinta ovunque. {{slide 38, 39}}' },
     idrogetto: { nome: 'Idrogetto', testo: 'Una presa grigliata aspira acqua, una pompa la accelera e l\'ugello la espelle ad elevata velocità. {{slide 45}}' },
   };
   const NOMI_GIRI = ['Fermo', 'Bassi', 'Medi', 'Alti', 'Massimi'];

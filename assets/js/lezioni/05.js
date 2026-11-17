@@ -12,7 +12,7 @@
   ];
   const QUIZ = [
     { n: 1, testo: 'Quale pezzo si imposta per primo?', scelte: ['Il fasciame', 'La chiglia', 'Il baglio'], giusta: 1, perche: 'Il primo pezzo che si imposta è la chiglia.' },
-    { n: 2, testo: 'L\'incastro che unisce più travi della chiglia si chiama…', scelte: ['Parella', 'Madiere', 'Scalmo'], giusta: 0, perche: 'È la parella.' },
+    { n: 2, testo: 'L\'incastro che unisce più travi della chiglia si chiama…', scelte: ['Palella', 'Madiere', 'Scalmo'], giusta: 0, perche: 'È la palella.' },
     { n: 3, testo: 'La parte centrale e più robusta dell\'ordinata è…', scelte: ['Lo scalmo', 'Lo staminale', 'Il madiere'], giusta: 2, perche: 'È il madiere, che si incastra nella chiglia.' },
     { n: 4, testo: 'Che cosa sostiene i ponti?', scelte: ['Il baglio', 'La sottochiglia', 'Il prestantino'], giusta: 0, perche: 'Il baglio, trave a sezione quadra.' },
     { n: 5, testo: 'Il pezzo che sorregge le teste dei bagli è…', scelte: ['Il paramezzale', 'Il dormiente', 'Il puntello'], giusta: 1, perche: 'Il dormiente, posto contro le murate, internamente.' },
@@ -285,7 +285,7 @@
         passo: 3, richiede: lez.fatto.aletta, avviso: 'Se salti, niente bandiera.',
         sx: [
           { t: 'titolo', testo: 'La chiglia' },
-          { t: 'p', size: 40, testo: 'È una robusta trave di legno a sezione rettangolare. Se la nave è molto grande si costruisce con più travi, unite da un incastro detto **parella**. {{slide 8}}' },
+          { t: 'p', size: 40, testo: 'È una robusta trave di legno a sezione rettangolare. Se la nave è molto grande si costruisce con più travi, unite da un incastro detto **palella**. {{slide 8}}' },
           { t: 'p', size: 40, testo: 'Sotto si applica la **sottochiglia**, che la protegge da urti e usura. {{slide 8}}' },
         ],
         dx: [
