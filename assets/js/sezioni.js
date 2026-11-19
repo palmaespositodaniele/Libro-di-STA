@@ -30,6 +30,16 @@
     { t: 'spazio', h: 18 },
   ];
 
+  // Firma in fondo alla pagina destra dell'indice, allineata al margine destro (pagina 1200 × 1640)
+  function firma(c) {
+    const D = 1110;
+    c.strokeStyle = C.ink2; c.lineWidth = 2; c.beginPath(); c.moveTo(D - 470, 1392); c.lineTo(D, 1392); c.stroke();
+    c.textAlign = 'right'; c.fillStyle = C.ink2;
+    c.font = '32px Atkinson, sans-serif'; c.fillText('Libro 3D a cura del', D, 1438);
+    c.fillStyle = C.ink; c.font = '700 38px Atkinson, sans-serif'; c.fillText('prof. Daniele Palma Esposito', D, 1484);
+    c.textAlign = 'left';
+  }
+
   Motore.sezione('indice', {
     spreads: () => [{
       sx: [
@@ -40,6 +50,7 @@
         ...CAPITOLI.slice(3).flatMap(capitolo),
         { t: 'bottoni', h: 96, lista: [{ id: 'sez:bandiere:0', testo: 'Le tue bandiere' }, { id: 'sez:glossario:0', testo: 'Glossario' }] },
         { t: 'bottoni', h: 96, lista: [{ id: 'sez:quiz:0', testo: 'Quiz di capitolo' }, { id: 'sez:docente:0', testo: 'Note docente' }] },
+        { t: 'disegno', h: 0, fn: firma },
       ],
     }],
   });
